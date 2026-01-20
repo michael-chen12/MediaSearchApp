@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { useSearchParams, Link } from 'react-router-dom';
-import { searchMovies } from '../api/tmdb';
+import { searchMovies } from '../lib/tmdbClient';
 import MovieCard from '../components/common/MovieCard';
 import { MovieGridSkeleton } from '../components/common/LoadingSkeleton';
 import ErrorMessage from '../components/common/ErrorMessage';

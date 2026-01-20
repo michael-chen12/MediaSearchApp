@@ -166,6 +166,7 @@ The `vercel.json` config is minimal (only rewrites). Vercel auto-detects Vite fr
 
 
 ## Designing Pages and Features Pattern
+- When implementing something, ALWAYS ASK ME FIRST before doing anything. This is important
 -  Start by identifying what components needed in each page and pattern that we're going to create
 - If the component (example: Button, Card, Avatar, Badge, Container etc.) doesn't exist, create a new custom reusable component in the @/src/components folder. Each component Folder consists of CSS and JS file
 

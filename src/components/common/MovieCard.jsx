@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom';
-import { getImageUrl } from '../../api/tmdb';
+import { getImageUrl } from '../../lib/tmdbClient';
 import { formatYear, formatRating } from '../../utils/format';
 
 export default function MovieCard({ movie }) {

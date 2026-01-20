@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
-import { getTrendingMovies } from '../api/tmdb';
+import { getTrendingMovies } from '../lib/tmdbClient';
 import MovieCard from '../components/common/MovieCard';
 import { MovieGridSkeleton } from '../components/common/LoadingSkeleton';
 import ErrorMessage from '../components/common/ErrorMessage';
