@@ -160,3 +160,10 @@ export async function getTrendingPeople(timeWindow = 'week', page = 1) {
   const params = new URLSearchParams({ timeWindow, page: String(page) });
   return http(`${API_BASE}/person-trending?${params}`);
 }
+
+/**
+ * Get collection details by ID
+ */
+export async function getCollectionDetails(collectionId) {
+  return http(`${API_BASE}/collection?id=${collectionId}`);
+}

@@ -5,9 +5,13 @@ import { MovieDetailSkeleton, MovieGridSkeleton } from '../components/common/Loa
 import ErrorMessage from '../components/common/ErrorMessage';
 import MovieCard from '../components/common/MovieCard';
 import { formatDate, formatRuntime, formatCurrency, formatRating, formatVoteCount } from '../utils/format';
+import { useFavorites } from '../context/FavoritesContext';
+import { useWatchlist } from '../context/WatchlistContext';
 
 export default function MovieDetail() {
   const { id } = useParams();
+  const { isFavorite, toggleFavorite } = useFavorites();
+  const { isInWatchlist, toggleWatchlist } = useWatchlist();
 
   const { data: movie, isLoading, error, refetch } = useQuery({
     queryKey: ['movieDetails', id],
@@ -86,6 +90,39 @@ export default function MovieDetail() {
             className="w-full h-full object-cover"
           />
           <div className="absolute inset-0 bg-gradient-to-t from-white dark:from-gray-900 via-transparent to-transparent" />
+          
+          {/* Floating Action Buttons */}
+          <div className="absolute top-4 right-4 flex gap-2">
+            <button
+              onClick={() => toggleFavorite({
+                id: movie.id,
+                title: movie.title,
+                poster_path: movie.poster_path,
+                release_date: movie.release_date
+              }, 'movie')}
+              className="p-3 rounded-full bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm hover:bg-white dark:hover:bg-gray-800 transition-all shadow-lg hover:scale-110"
+              aria-label={isFavorite(movie.id, 'movie') ? 'Remove from favorites' : 'Add to favorites'}
+            >
+              <svg className="w-6 h-6" fill={isFavorite(movie.id, 'movie') ? 'currentColor' : 'none'} stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" className={isFavorite(movie.id, 'movie') ? 'text-red-500' : 'text-gray-700 dark:text-gray-300'} />
+              </svg>
+            </button>
+            
+            <button
+              onClick={() => toggleWatchlist({
+                id: movie.id,
+                title: movie.title,
+                poster_path: movie.poster_path,
+                release_date: movie.release_date
+              }, 'movie')}
+              className="p-3 rounded-full bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm hover:bg-white dark:hover:bg-gray-800 transition-all shadow-lg hover:scale-110"
+              aria-label={isInWatchlist(movie.id, 'movie') ? 'Remove from watchlist' : 'Add to watchlist'}
+            >
+              <svg className="w-6 h-6" fill={isInWatchlist(movie.id, 'movie') ? 'currentColor' : 'none'} stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z" className={isInWatchlist(movie.id, 'movie') ? 'text-blue-500' : 'text-gray-700 dark:text-gray-300'} />
+              </svg>
+            </button>
+          </div>
         </div>
       )}
 
@@ -170,6 +207,40 @@ export default function MovieDetail() {
           </div>
         </div>
       </div>
+
+      {/* Collection Section */}
+      {movie.belongs_to_collection && (
+        <div className="mb-12">
+          <h2 className="text-2xl font-semibold text-gray-900 dark:text-gray-100 mb-6">
+            Part of Collection
+          </h2>
+          <Link
+            to={`/collection/${movie.belongs_to_collection.id}`}
+            className="flex items-center gap-6 p-6 bg-gradient-to-r from-primary-50 to-primary-100 dark:from-primary-900/20 dark:to-primary-800/20 rounded-xl hover:shadow-lg transition-shadow duration-300 group"
+          >
+            {movie.belongs_to_collection.poster_path && (
+              <div className="w-24 flex-shrink-0">
+                <img
+                  src={getImageUrl(movie.belongs_to_collection.poster_path, 'poster', 'small')}
+                  alt={movie.belongs_to_collection.name}
+                  className="w-full rounded-lg shadow-md group-hover:shadow-xl transition-shadow duration-300"
+                />
+              </div>
+            )}
+            <div className="flex-1">
+              <h3 className="text-xl font-semibold text-gray-900 dark:text-gray-100 mb-2 group-hover:text-primary-600 dark:group-hover:text-primary-400 transition-colors">
+                {movie.belongs_to_collection.name}
+              </h3>
+              <p className="text-gray-600 dark:text-gray-400 flex items-center gap-2">
+                View all movies in this collection
+                <svg className="w-5 h-5 group-hover:translate-x-1 transition-transform duration-300" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                </svg>
+              </p>
+            </div>
+          </Link>
+        </div>
+      )}
 
       {cast.length > 0 && (
         <div className="mb-12">

@@ -5,9 +5,13 @@ import { MovieDetailSkeleton, MovieGridSkeleton } from '../components/common/Loa
 import ErrorMessage from '../components/common/ErrorMessage';
 import TVShowCard from '../components/common/TVShowCard';
 import { formatDate, formatRating, formatVoteCount } from '../utils/format';
+import { useFavorites } from '../context/FavoritesContext';
+import { useWatchlist } from '../context/WatchlistContext';
 
 export default function TVShowDetail() {
   const { id } = useParams();
+  const { isFavorite, toggleFavorite } = useFavorites();
+  const { isInWatchlist, toggleWatchlist } = useWatchlist();
 
   const { data: tvShow, isLoading, error, refetch } = useQuery({
     queryKey: ['tvShowDetails', id],
@@ -87,6 +91,39 @@ export default function TVShowDetail() {
             className="w-full h-full object-cover"
           />
           <div className="absolute inset-0 bg-gradient-to-t from-white dark:from-gray-900 via-transparent to-transparent" />
+          
+          {/* Floating Action Buttons */}
+          <div className="absolute top-4 right-4 flex gap-2">
+            <button
+              onClick={() => toggleFavorite({
+                id: tvShow.id,
+                name: tvShow.name,
+                poster_path: tvShow.poster_path,
+                first_air_date: tvShow.first_air_date
+              }, 'tv')}
+              className="p-3 rounded-full bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm hover:bg-white dark:hover:bg-gray-800 transition-all shadow-lg hover:scale-110"
+              aria-label={isFavorite(tvShow.id, 'tv') ? 'Remove from favorites' : 'Add to favorites'}
+            >
+              <svg className="w-6 h-6" fill={isFavorite(tvShow.id, 'tv') ? 'currentColor' : 'none'} stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" className={isFavorite(tvShow.id, 'tv') ? 'text-red-500' : 'text-gray-700 dark:text-gray-300'} />
+              </svg>
+            </button>
+            
+            <button
+              onClick={() => toggleWatchlist({
+                id: tvShow.id,
+                name: tvShow.name,
+                poster_path: tvShow.poster_path,
+                first_air_date: tvShow.first_air_date
+              }, 'tv')}
+              className="p-3 rounded-full bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm hover:bg-white dark:hover:bg-gray-800 transition-all shadow-lg hover:scale-110"
+              aria-label={isInWatchlist(tvShow.id, 'tv') ? 'Remove from watchlist' : 'Add to watchlist'}
+            >
+              <svg className="w-6 h-6" fill={isInWatchlist(tvShow.id, 'tv') ? 'currentColor' : 'none'} stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z" className={isInWatchlist(tvShow.id, 'tv') ? 'text-blue-500' : 'text-gray-700 dark:text-gray-300'} />
+              </svg>
+            </button>
+          </div>
         </div>
       )}
 
