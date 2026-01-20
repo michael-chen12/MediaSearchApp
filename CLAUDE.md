@@ -174,3 +174,6 @@ The `vercel.json` config is minimal (only rewrites). Vercel auto-detects Vite fr
 - Use Git as checkpoint system. If there is MCP Server that can assists me, tell me.
 - If there is no Git initizialized. Tell me to do so.
 - When implementing features, ask me if I want to commit to git and push.
+
+Use context7 for every prompt
+Ask me questions for every prompt I make
