@@ -1,8 +1,9 @@
 import { useQuery } from '@tanstack/react-query';
 import { useSearchParams } from 'react-router-dom';
-import { getTrendingMovies, getTrendingTVShows } from '../lib/tmdbClient';
+import { getTrendingMovies, getTrendingTVShows, getTrendingPeople } from '../lib/tmdbClient';
 import MovieCard from '../components/common/MovieCard';
 import TVShowCard from '../components/common/TVShowCard';
+import PersonCard from '../components/common/PersonCard';
 import { MovieGridSkeleton } from '../components/common/LoadingSkeleton';
 import ErrorMessage from '../components/common/ErrorMessage';
 import EmptyState from '../components/common/EmptyState';
@@ -15,7 +16,8 @@ export default function Home() {
 
   const mediaTypeTabs = [
     { id: 'movie', label: 'Movies' },
-    { id: 'tv', label: 'TV Shows' }
+    { id: 'tv', label: 'TV Shows' },
+    { id: 'people', label: 'People' }
   ];
 
   const timeWindowTabs = [
@@ -24,8 +26,8 @@ export default function Home() {
   ];
 
   const { data, isLoading, error, refetch } = useQuery({
-    queryKey: mediaType === 'movie' ? ['trendingMovies', timeWindow] : ['trendingTVShows', timeWindow],
-    queryFn: () => mediaType === 'movie' ? getTrendingMovies(timeWindow, 1) : getTrendingTVShows(timeWindow, 1),
+    queryKey: mediaType === 'movie' ? ['trendingMovies', timeWindow] : mediaType === 'tv' ? ['trendingTVShows', timeWindow] : ['trendingPeople', timeWindow],
+    queryFn: () => mediaType === 'movie' ? getTrendingMovies(timeWindow, 1) : mediaType === 'tv' ? getTrendingTVShows(timeWindow, 1) : getTrendingPeople(timeWindow, 1),
   });
 
   const handleMediaTypeChange = (newMediaType) => {
@@ -36,7 +38,7 @@ export default function Home() {
     setSearchParams({ mediaType, timeWindow: newTimeWindow });
   };
 
-  const pageTitle = `Trending ${mediaType === 'movie' ? 'Movies' : 'TV Shows'} ${timeWindow === 'day' ? 'Today' : 'This Week'}`;
+  const pageTitle = `Trending ${mediaType === 'movie' ? 'Movies' : mediaType === 'tv' ? 'TV Shows' : 'People'} ${timeWindow === 'day' ? 'Today' : 'This Week'}`;
 
   if (isLoading) {
     return (
@@ -64,8 +66,8 @@ export default function Home() {
   if (items.length === 0) {
     return (
       <EmptyState
-        title={`No trending ${mediaType === 'movie' ? 'movies' : 'TV shows'}`}
-        message={`Check back later for trending ${mediaType === 'movie' ? 'movies' : 'TV shows'}.`}
+        title={`No trending ${mediaType === 'movie' ? 'movies' : mediaType === 'tv' ? 'TV shows' : 'people'}`}
+        message={`Check back later for trending ${mediaType === 'movie' ? 'movies' : mediaType === 'tv' ? 'TV shows' : 'people'}.`}
       />
     );
   }
@@ -77,7 +79,7 @@ export default function Home() {
           {pageTitle}
         </h1>
         <p className="text-gray-600 dark:text-gray-400">
-          Discover the most popular {mediaType === 'movie' ? 'movies' : 'TV shows'} right now
+          Discover the most popular {mediaType === 'movie' ? 'movies' : mediaType === 'tv' ? 'TV shows' : 'people'} right now
         </p>
       </div>
 
@@ -93,8 +95,10 @@ export default function Home() {
         {items.map((item) => (
           mediaType === 'movie' ? (
             <MovieCard key={item.id} movie={item} />
-          ) : (
+          ) : mediaType === 'tv' ? (
             <TVShowCard key={item.id} tvShow={item} />
+          ) : (
+            <PersonCard key={item.id} person={item} />
           )
         ))}
       </div>
