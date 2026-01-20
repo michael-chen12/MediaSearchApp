@@ -1,8 +1,9 @@
 import { useQuery } from '@tanstack/react-query';
 import { useSearchParams, Link } from 'react-router-dom';
-import { searchMovies, searchTVShows } from '../lib/tmdbClient';
+import { searchMovies, searchTVShows, searchPeople } from '../lib/tmdbClient';
 import MovieCard from '../components/common/MovieCard';
 import TVShowCard from '../components/common/TVShowCard';
+import PersonCard from '../components/common/PersonCard';
 import { MovieGridSkeleton } from '../components/common/LoadingSkeleton';
 import ErrorMessage from '../components/common/ErrorMessage';
 import EmptyState from '../components/common/EmptyState';
@@ -17,12 +18,17 @@ export default function SearchResults() {
 
   const mediaTypeTabs = [
     { id: 'movie', label: 'Movies' },
-    { id: 'tv', label: 'TV Shows' }
+    { id: 'tv', label: 'TV Shows' },
+    { id: 'people', label: 'People' }
   ];
 
   const { data, isLoading, error, refetch } = useQuery({
-    queryKey: mediaType === 'movie' ? ['searchMovies', query, page] : ['searchTVShows', query, page],
-    queryFn: () => mediaType === 'movie' ? searchMovies(query, page) : searchTVShows(query, page),
+    queryKey: mediaType === 'movie' ? ['searchMovies', query, page] : 
+               mediaType === 'tv' ? ['searchTVShows', query, page] :
+               ['searchPeople', query, page],
+    queryFn: () => mediaType === 'movie' ? searchMovies(query, page) : 
+                    mediaType === 'tv' ? searchTVShows(query, page) :
+                    searchPeople(query, page),
     enabled: query.length > 0,
   });
 
@@ -40,7 +46,7 @@ export default function SearchResults() {
     return (
       <EmptyState
         title="Start searching"
-        message="Enter a movie or TV show title in the search bar above."
+        message="Enter a movie, TV show, or person name in the search bar above."
         showHomeLink
       />
     );
@@ -135,7 +141,7 @@ export default function SearchResults() {
           Back to Home
         </Link>
         <EmptyState
-          title={`No ${mediaType === 'movie' ? 'movies' : 'TV shows'} found for "${query}"`}
+          title={`No ${mediaType === 'movie' ? 'movies' : mediaType === 'tv' ? 'TV shows' : 'people'} found for "${query}"`}
           message="Try different keywords or check your spelling."
         />
       </div>
@@ -169,7 +175,7 @@ export default function SearchResults() {
           Search Results for "{query}"
         </h1>
         <p className="text-gray-600 dark:text-gray-400">
-          Found {data.total_results.toLocaleString()} {mediaType === 'movie' ? 'movies' : 'TV shows'}
+          Found {data.total_results.toLocaleString()} {mediaType === 'movie' ? 'movies' : mediaType === 'tv' ? 'TV shows' : 'people'}
         </p>
       </div>
 
@@ -181,8 +187,10 @@ export default function SearchResults() {
         {items.map((item) => (
           mediaType === 'movie' ? (
             <MovieCard key={item.id} movie={item} />
-          ) : (
+          ) : mediaType === 'tv' ? (
             <TVShowCard key={item.id} tvShow={item} />
+          ) : (
+            <PersonCard key={item.id} person={item} />
           )
         ))}
       </div>

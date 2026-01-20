@@ -4,6 +4,7 @@ import Home from './pages/Home';
 import SearchResults from './pages/SearchResults';
 import MovieDetail from './pages/MovieDetail';
 import TVShowDetail from './pages/TVShowDetail';
+import PersonDetail from './pages/PersonDetail';
 
 function NotFound() {
   return (
@@ -24,6 +25,7 @@ export default function App() {
         <Route path="/search" element={<SearchResults />} />
         <Route path="/movie/:id" element={<MovieDetail />} />
         <Route path="/tv/:id" element={<TVShowDetail />} />
+        <Route path="/person/:id" element={<PersonDetail />} />
         <Route path="*" element={<NotFound />} />
       </Routes>
     </Layout>
