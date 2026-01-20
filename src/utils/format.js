@@ -52,3 +52,19 @@ export function formatVoteCount(count) {
   }
   return count.toString();
 }
+
+/**
+ * Format season/episode as "S01E05"
+ */
+export function formatEpisode(season, episode) {
+  const s = String(season).padStart(2, '0');
+  const e = String(episode).padStart(2, '0');
+  return `S${s}E${e}`;
+}
+
+/**
+ * Format air date (alias for formatDate for clarity in TV context)
+ */
+export function formatAirDate(dateString) {
+  return formatDate(dateString);
+}

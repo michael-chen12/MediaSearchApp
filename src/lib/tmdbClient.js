@@ -81,3 +81,82 @@ export async function getSimilarMovies(movieId, page = 1) {
   });
   return http(`${API_BASE}/similar?${params}`);
 }
+
+/**
+ * Search TV shows by query
+ */
+export async function searchTVShows(query, page = 1) {
+  const params = new URLSearchParams({ q: query, page: String(page) });
+  return http(`${API_BASE}/tv-search?${params}`);
+}
+
+/**
+ * Get TV show details by ID
+ */
+export async function getTVShowDetails(tvId) {
+  return http(`${API_BASE}/tv-details?id=${tvId}`);
+}
+
+/**
+ * Get trending TV shows
+ */
+export async function getTrendingTVShows(timeWindow = 'week', page = 1) {
+  const params = new URLSearchParams({ timeWindow, page: String(page) });
+  return http(`${API_BASE}/tv-trending?${params}`);
+}
+
+/**
+ * Get TV show credits (cast & crew)
+ */
+export async function getTVShowCredits(tvId) {
+  return http(`${API_BASE}/tv-credits?id=${tvId}`);
+}
+
+/**
+ * Get similar TV shows
+ */
+export async function getSimilarTVShows(tvId, page = 1) {
+  const params = new URLSearchParams({ id: String(tvId), page: String(page) });
+  return http(`${API_BASE}/tv-similar?${params}`);
+}
+
+/**
+ * Get TV season details with episodes
+ */
+export async function getTVSeasonDetails(tvId, seasonNumber) {
+  const params = new URLSearchParams({
+    id: String(tvId),
+    seasonNumber: String(seasonNumber)
+  });
+  return http(`${API_BASE}/tv-season?${params}`);
+}
+
+/**
+ * Search people by query
+ */
+export async function searchPeople(query, page = 1) {
+  const params = new URLSearchParams({ q: query, page: String(page) });
+  return http(`${API_BASE}/person-search?${params}`);
+}
+
+/**
+ * Get person details by ID
+ */
+export async function getPersonDetails(personId) {
+  return http(`${API_BASE}/person-details?id=${personId}`);
+}
+
+/**
+ * Get person credits (combined movies + TV shows)
+ */
+export async function getPersonCredits(personId) {
+  return http(`${API_BASE}/person-credits?id=${personId}`);
+}
+
+/**
+ * Get trending people
+ */
+export async function getTrendingPeople(timeWindow = 'week', page = 1) {
+  const params = new URLSearchParams({ timeWindow, page: String(page) });
+  return http(`${API_BASE}/person-trending?${params}`);
+}
