@@ -373,11 +373,15 @@ Test that:
 - Renders PersonCard for people results
 - Shows result count: "X people found"
 
-### 3.6 Add People to Home Page (Optional) ⏭️ SKIPPED
+### 3.6 Add People to Home Page (Optional) ✅
 
 **File**: `src/pages/Home.jsx`
 
-⏭️ Skipped for now - can be added later if needed
+✅ Completed:
+- Extended tabs with People: [{id: 'movie', ...}, {id: 'tv', ...}, {id: 'people', label: 'People'}]
+- Added `getTrendingPeople(timeWindow)` query
+- Renders PersonCard grid for people results
+- Updated title: "Trending People This Week/Today"
 
 ### 3.7 Update Routing ✅
 
@@ -395,7 +399,7 @@ Test that:
 - ✅ Click person card navigates to `/person/:id`
 - ✅ Person page shows biography and filmography (movies + TV)
 - ✅ Filmography links work (click movie/TV show navigates to detail)
-- ⏭️ Home page People tab (skipped - optional)
+- ✅ Home page People tab works
 
 ---
 
