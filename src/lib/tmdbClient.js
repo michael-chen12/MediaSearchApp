@@ -42,15 +42,24 @@ export function getImageUrl(path, type = 'poster', size = 'medium') {
  * Search movies by query
  */
 export async function searchMovies(query, page = 1) {
-  const params = new URLSearchParams({ q: query, page: String(page) });
-  return http(`${API_BASE}/search?${params}`);
+  const params = new URLSearchParams({ 
+    endpoint: 'search/movie',
+    query,
+    page: String(page),
+    include_adult: 'false'
+  });
+  return http(`${API_BASE}?${params}`);
 }
 
 /**
  * Get movie details by ID
  */
 export async function getMovieDetails(movieId) {
-  return http(`${API_BASE}/movie?id=${movieId}`);
+  const params = new URLSearchParams({ 
+    endpoint: `movie/${movieId}`,
+    append_to_response: 'credits,similar'
+  });
+  return http(`${API_BASE}?${params}`);
 }
 
 /**
@@ -58,17 +67,20 @@ export async function getMovieDetails(movieId) {
  */
 export async function getTrendingMovies(timeWindow = 'week', page = 1) {
   const params = new URLSearchParams({
-    timeWindow,
+    endpoint: `trending/movie/${timeWindow}`,
     page: String(page)
   });
-  return http(`${API_BASE}/trending?${params}`);
+  return http(`${API_BASE}?${params}`);
 }
 
 /**
  * Get movie credits (cast & crew)
  */
 export async function getMovieCredits(movieId) {
-  return http(`${API_BASE}/credits?id=${movieId}`);
+  const params = new URLSearchParams({ 
+    endpoint: `movie/${movieId}/credits`
+  });
+  return http(`${API_BASE}?${params}`);
 }
 
 /**
@@ -76,48 +88,66 @@ export async function getMovieCredits(movieId) {
  */
 export async function getSimilarMovies(movieId, page = 1) {
   const params = new URLSearchParams({
-    id: String(movieId),
+    endpoint: `movie/${movieId}/similar`,
     page: String(page)
   });
-  return http(`${API_BASE}/similar?${params}`);
+  return http(`${API_BASE}?${params}`);
 }
 
 /**
  * Search TV shows by query
  */
 export async function searchTVShows(query, page = 1) {
-  const params = new URLSearchParams({ q: query, page: String(page) });
-  return http(`${API_BASE}/tv-search?${params}`);
+  const params = new URLSearchParams({ 
+    endpoint: 'search/tv',
+    query,
+    page: String(page),
+    include_adult: 'false'
+  });
+  return http(`${API_BASE}?${params}`);
 }
 
 /**
  * Get TV show details by ID
  */
 export async function getTVShowDetails(tvId) {
-  return http(`${API_BASE}/tv-details?id=${tvId}`);
+  const params = new URLSearchParams({ 
+    endpoint: `tv/${tvId}`,
+    append_to_response: 'credits,similar'
+  });
+  return http(`${API_BASE}?${params}`);
 }
 
 /**
  * Get trending TV shows
  */
 export async function getTrendingTVShows(timeWindow = 'week', page = 1) {
-  const params = new URLSearchParams({ timeWindow, page: String(page) });
-  return http(`${API_BASE}/tv-trending?${params}`);
+  const params = new URLSearchParams({ 
+    endpoint: `trending/tv/${timeWindow}`,
+    page: String(page) 
+  });
+  return http(`${API_BASE}?${params}`);
 }
 
 /**
  * Get TV show credits (cast & crew)
  */
 export async function getTVShowCredits(tvId) {
-  return http(`${API_BASE}/tv-credits?id=${tvId}`);
+  const params = new URLSearchParams({ 
+    endpoint: `tv/${tvId}/credits`
+  });
+  return http(`${API_BASE}?${params}`);
 }
 
 /**
  * Get similar TV shows
  */
 export async function getSimilarTVShows(tvId, page = 1) {
-  const params = new URLSearchParams({ id: String(tvId), page: String(page) });
-  return http(`${API_BASE}/tv-similar?${params}`);
+  const params = new URLSearchParams({ 
+    endpoint: `tv/${tvId}/similar`,
+    page: String(page) 
+  });
+  return http(`${API_BASE}?${params}`);
 }
 
 /**
@@ -125,45 +155,61 @@ export async function getSimilarTVShows(tvId, page = 1) {
  */
 export async function getTVSeasonDetails(tvId, seasonNumber) {
   const params = new URLSearchParams({
-    id: String(tvId),
-    seasonNumber: String(seasonNumber)
+    endpoint: `tv/${tvId}/season/${seasonNumber}`
   });
-  return http(`${API_BASE}/tv-season?${params}`);
+  return http(`${API_BASE}?${params}`);
 }
 
 /**
  * Search people by query
  */
 export async function searchPeople(query, page = 1) {
-  const params = new URLSearchParams({ q: query, page: String(page) });
-  return http(`${API_BASE}/person-search?${params}`);
+  const params = new URLSearchParams({ 
+    endpoint: 'search/person',
+    query,
+    page: String(page),
+    include_adult: 'false'
+  });
+  return http(`${API_BASE}?${params}`);
 }
 
 /**
  * Get person details by ID
  */
 export async function getPersonDetails(personId) {
-  return http(`${API_BASE}/person-details?id=${personId}`);
+  const params = new URLSearchParams({ 
+    endpoint: `person/${personId}`
+  });
+  return http(`${API_BASE}?${params}`);
 }
 
 /**
  * Get person credits (combined movies + TV shows)
  */
 export async function getPersonCredits(personId) {
-  return http(`${API_BASE}/person-credits?id=${personId}`);
+  const params = new URLSearchParams({ 
+    endpoint: `person/${personId}/combined_credits`
+  });
+  return http(`${API_BASE}?${params}`);
 }
 
 /**
  * Get trending people
  */
 export async function getTrendingPeople(timeWindow = 'week', page = 1) {
-  const params = new URLSearchParams({ timeWindow, page: String(page) });
-  return http(`${API_BASE}/person-trending?${params}`);
+  const params = new URLSearchParams({ 
+    endpoint: `trending/person/${timeWindow}`,
+    page: String(page) 
+  });
+  return http(`${API_BASE}?${params}`);
 }
 
 /**
  * Get collection details by ID
  */
 export async function getCollectionDetails(collectionId) {
-  return http(`${API_BASE}/collection?id=${collectionId}`);
+  const params = new URLSearchParams({ 
+    endpoint: `collection/${collectionId}`
+  });
+  return http(`${API_BASE}?${params}`);
 }
