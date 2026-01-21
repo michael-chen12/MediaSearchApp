@@ -9,6 +9,7 @@ A modern movie search and discovery application built with React, powered by The
 - **Data Fetching**: TanStack Query (React Query)
 - **Routing**: React Router
 - **Backend**: Vercel Serverless Functions (proxy to hide API key)
+- **Auth & Sync**: Supabase (email/password)
 
 ## Project Structure
 
@@ -62,6 +63,10 @@ Edit `.env` and add your TMDB API key:
 # Required: TMDB API Key
 TMDB_API_KEY=your_actual_tmdb_api_key_here
 
+# Required for auth + synced lists
+VITE_SUPABASE_URL=your_supabase_project_url
+VITE_SUPABASE_ANON_KEY=your_supabase_anon_key
+
 # Optional: Analytics Configuration
 VITE_PLAUSIBLE_DOMAIN=yourdomain.com
 VITE_GA_MEASUREMENT_ID=G-XXXXXXXXXX
@@ -73,7 +78,91 @@ VITE_RESPECT_DNT=true
 - Analytics keys can be left empty if you don't want tracking
 - See [docs/ANALYTICS.md](docs/ANALYTICS.md) for analytics setup guide
 
-### 4. Running the Application
+### 4. Supabase Setup (Auth + Synced Lists)
+
+1. Create a Supabase project and enable Email/Password auth.
+2. Run the SQL below in the Supabase SQL editor to create tables and policies.
+3. If Supabase env vars are missing, the app falls back to localStorage-only lists.
+4. On first login, existing local watchlist/favorites are migrated once to Supabase.
+
+```sql
+create extension if not exists \"pgcrypto\";
+
+create table if not exists lists (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references auth.users(id) on delete cascade,
+  name text not null,
+  type text not null check (type in ('watchlist', 'favorites')),
+  sort_order int default 0,
+  created_at timestamptz default now(),
+  updated_at timestamptz default now(),
+  unique (user_id, type)
+);
+
+create table if not exists list_items (
+  id uuid primary key default gen_random_uuid(),
+  list_id uuid not null references lists(id) on delete cascade,
+  media_type text not null check (media_type in ('movie', 'tv')),
+  media_id int not null,
+  title text,
+  poster_path text,
+  release_date text,
+  added_at timestamptz default now(),
+  notes text,
+  extra jsonb,
+  unique (list_id, media_type, media_id)
+);
+
+create index if not exists list_items_list_id_idx on list_items (list_id);
+create index if not exists list_items_media_idx on list_items (media_type, media_id);
+
+alter table lists enable row level security;
+alter table list_items enable row level security;
+
+create policy \"Lists are viewable by owner\" on lists
+  for select using (auth.uid() = user_id);
+create policy \"Lists are insertable by owner\" on lists
+  for insert with check (auth.uid() = user_id);
+create policy \"Lists are updatable by owner\" on lists
+  for update using (auth.uid() = user_id);
+create policy \"Lists are deletable by owner\" on lists
+  for delete using (auth.uid() = user_id);
+
+create policy \"List items are viewable by owner\" on list_items
+  for select using (
+    exists (
+      select 1 from lists
+      where lists.id = list_items.list_id
+        and lists.user_id = auth.uid()
+    )
+  );
+create policy \"List items are insertable by owner\" on list_items
+  for insert with check (
+    exists (
+      select 1 from lists
+      where lists.id = list_items.list_id
+        and lists.user_id = auth.uid()
+    )
+  );
+create policy \"List items are updatable by owner\" on list_items
+  for update using (
+    exists (
+      select 1 from lists
+      where lists.id = list_items.list_id
+        and lists.user_id = auth.uid()
+    )
+  );
+create policy \"List items are deletable by owner\" on list_items
+  for delete using (
+    exists (
+      select 1 from lists
+      where lists.id = list_items.list_id
+        and lists.user_id = auth.uid()
+    )
+  );
+```
+
+### 5. Running the Application
 
 You need to run **both** the frontend dev server and the Vercel functions locally.
 
@@ -114,6 +203,10 @@ Then configure your frontend to proxy API requests to port 3001.
 
 - `/` - Home page (placeholder)
 - `/search` - Search page (placeholder)
+- `/login` - Log in
+- `/signup` - Create account
+- `/favorites` - Favorites list
+- `/watchlist` - Watchlist
 
 ## API Endpoints (Serverless Proxy)
 

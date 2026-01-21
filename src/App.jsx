@@ -9,6 +9,8 @@ import PersonDetail from './pages/PersonDetail';
 import CollectionDetail from './pages/CollectionDetail';
 import Favorites from './pages/Favorites';
 import Watchlist from './pages/Watchlist';
+import Login from './pages/Login';
+import Signup from './pages/Signup';
 
 function NotFound() {
   return (
@@ -59,6 +61,8 @@ export default function App() {
         <Route path="/collection/:id" element={<CollectionDetail />} />
         <Route path="/favorites" element={<Favorites />} />
         <Route path="/watchlist" element={<Watchlist />} />
+        <Route path="/login" element={<Login />} />
+        <Route path="/signup" element={<Signup />} />
         <Route path="*" element={<NotFound />} />
       </Routes>
     </Layout>
