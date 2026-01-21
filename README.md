@@ -81,12 +81,23 @@ VITE_RESPECT_DNT=true
 ### 4. Supabase Setup (Auth + Synced Lists)
 
 1. Create a Supabase project and enable Email/Password auth.
-2. Run the SQL below in the Supabase SQL editor to create tables and policies.
-3. If Supabase env vars are missing, the app falls back to localStorage-only lists.
-4. On first login, existing local watchlist/favorites are migrated once to Supabase.
+2. (Optional) Enable Google provider and add redirect URLs (e.g. `http://localhost:5173/login`).
+3. Run the SQL below in the Supabase SQL editor to create tables and policies.
+4. If Supabase env vars are missing, the app falls back to localStorage-only lists.
+5. On first login, existing local watchlist/favorites are migrated once to Supabase.
 
 ```sql
 create extension if not exists \"pgcrypto\";
+
+create table if not exists profiles (
+  id uuid primary key references auth.users(id) on delete cascade,
+  email text,
+  display_name text,
+  avatar_url text,
+  locale text,
+  created_at timestamptz default now(),
+  updated_at timestamptz default now()
+);
 
 create table if not exists lists (
   id uuid primary key default gen_random_uuid(),
@@ -118,6 +129,16 @@ create index if not exists list_items_media_idx on list_items (media_type, media
 
 alter table lists enable row level security;
 alter table list_items enable row level security;
+alter table profiles enable row level security;
+
+create policy \"Profiles are viewable by owner\" on profiles
+  for select using (auth.uid() = id);
+create policy \"Profiles are insertable by owner\" on profiles
+  for insert with check (auth.uid() = id);
+create policy \"Profiles are updatable by owner\" on profiles
+  for update using (auth.uid() = id);
+create policy \"Profiles are deletable by owner\" on profiles
+  for delete using (auth.uid() = id);
 
 create policy \"Lists are viewable by owner\" on lists
   for select using (auth.uid() = user_id);
@@ -160,6 +181,34 @@ create policy \"List items are deletable by owner\" on list_items
         and lists.user_id = auth.uid()
     )
   );
+```
+
+Optional profile avatars (Supabase Storage):
+1. Create a public bucket named `avatars`.
+2. Add storage policies for authenticated uploads and public reads (matches the `userId/avatar.ext` path used by the app):
+
+```sql
+insert into storage.buckets (id, name, public)
+values ('avatars', 'avatars', true)
+on conflict do nothing;
+
+create policy "Avatar uploads are allowed" on storage.objects
+  for insert to authenticated
+  with check (
+    bucket_id = 'avatars'
+    and (storage.foldername(name))[1] = auth.uid()::text
+  );
+
+create policy "Avatar updates are allowed" on storage.objects
+  for update to authenticated
+  using (
+    bucket_id = 'avatars'
+    and (storage.foldername(name))[1] = auth.uid()::text
+  );
+
+create policy "Avatar reads are public" on storage.objects
+  for select
+  using (bucket_id = 'avatars');
 ```
 
 ### 5. Running the Application
@@ -207,6 +256,7 @@ Then configure your frontend to proxy API requests to port 3001.
 - `/signup` - Create account
 - `/favorites` - Favorites list
 - `/watchlist` - Watchlist
+- `/profile` - Profile settings
 
 ## API Endpoints (Serverless Proxy)
 

@@ -11,6 +11,8 @@ import Favorites from './pages/Favorites';
 import Watchlist from './pages/Watchlist';
 import Login from './pages/Login';
 import Signup from './pages/Signup';
+import Profile from './pages/Profile';
+import ProtectedRoute from './components/auth/ProtectedRoute';
 
 function NotFound() {
   return (
@@ -59,8 +61,30 @@ export default function App() {
         <Route path="/tv/:id" element={<TVShowDetail />} />
         <Route path="/person/:id" element={<PersonDetail />} />
         <Route path="/collection/:id" element={<CollectionDetail />} />
-        <Route path="/favorites" element={<Favorites />} />
-        <Route path="/watchlist" element={<Watchlist />} />
+        <Route
+          path="/favorites"
+          element={(
+            <ProtectedRoute>
+              <Favorites />
+            </ProtectedRoute>
+          )}
+        />
+        <Route
+          path="/watchlist"
+          element={(
+            <ProtectedRoute>
+              <Watchlist />
+            </ProtectedRoute>
+          )}
+        />
+        <Route
+          path="/profile"
+          element={(
+            <ProtectedRoute>
+              <Profile />
+            </ProtectedRoute>
+          )}
+        />
         <Route path="/login" element={<Login />} />
         <Route path="/signup" element={<Signup />} />
         <Route path="*" element={<NotFound />} />
