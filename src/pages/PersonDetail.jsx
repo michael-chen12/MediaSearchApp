@@ -89,6 +89,27 @@ export default function PersonDetail() {
     return dateB - dateA;
   });
 
+  const combinedCredits = [
+    ...(credits?.cast || []),
+    ...(credits?.crew || [])
+  ];
+
+  const knownForItems = [];
+  const knownForKeys = new Set();
+
+  combinedCredits.forEach((credit) => {
+    if (!credit?.media_type) return;
+    const key = `${credit.media_type}-${credit.id}`;
+    if (knownForKeys.has(key)) return;
+    knownForKeys.add(key);
+    knownForItems.push(credit);
+  });
+
+  const knownFor = knownForItems
+    .filter((credit) => credit.media_type === 'movie' || credit.media_type === 'tv')
+    .sort((a, b) => (b.popularity || 0) - (a.popularity || 0))
+    .slice(0, 6);
+
   return (
     <div>
       <Link
@@ -156,6 +177,23 @@ export default function PersonDetail() {
           )}
         </div>
       </div>
+
+      {knownFor.length > 0 && (
+        <div className="mb-12">
+          <h2 className="text-2xl font-semibold text-gray-900 dark:text-gray-100 mb-6">
+            Known For
+          </h2>
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-6">
+            {knownFor.map((credit) =>
+              credit.media_type === 'movie' ? (
+                <MovieCard key={`known-${credit.media_type}-${credit.id}`} movie={credit} />
+              ) : (
+                <TVShowCard key={`known-${credit.media_type}-${credit.id}`} tvShow={credit} />
+              )
+            )}
+          </div>
+        </div>
+      )}
 
       {sortedMovies.length > 0 && (
         <div className="mb-12">

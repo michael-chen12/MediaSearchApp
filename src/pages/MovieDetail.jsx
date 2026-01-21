@@ -1,7 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { useParams, Link } from 'react-router-dom';
 import { getMovieDetails, getMovieCredits, getSimilarMovies, getImageUrl } from '../lib/tmdbClient';
-import { MovieDetailSkeleton, MovieGridSkeleton } from '../components/common/LoadingSkeleton';
+import { MovieDetailSkeleton } from '../components/common/LoadingSkeleton';
 import ErrorMessage from '../components/common/ErrorMessage';
 import MovieCard from '../components/common/MovieCard';
 import { formatDate, formatRuntime, formatCurrency, formatRating, formatVoteCount } from '../utils/format';
@@ -68,6 +68,17 @@ export default function MovieDetail() {
   const posterUrl = getImageUrl(movie.poster_path, 'poster', 'large');
   const director = credits?.crew?.find((person) => person.job === 'Director');
   const cast = credits?.cast?.slice(0, 8) || [];
+  const crewMembers = credits?.crew?.filter((person) => person.job && person.name) || [];
+  const crewKeys = new Set();
+  const uniqueCrew = crewMembers.filter((person) => {
+    const key = `${person.id}-${person.job}`;
+    if (crewKeys.has(key)) {
+      return false;
+    }
+    crewKeys.add(key);
+    return true;
+  });
+  const displayedCrew = uniqueCrew.slice(0, 12);
   const similarMovies = similarMoviesData?.results?.slice(0, 6) || [];
 
   return (
@@ -271,6 +282,29 @@ export default function MovieDetail() {
                 </p>
                 <p className="text-xs text-gray-600 dark:text-gray-400 line-clamp-1">
                   {person.character}
+                </p>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {displayedCrew.length > 0 && (
+        <div className="mb-12">
+          <h2 className="text-2xl font-semibold text-gray-900 dark:text-gray-100 mb-6">
+            Crew
+          </h2>
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
+            {displayedCrew.map((person) => (
+              <div
+                key={`${person.id}-${person.job}`}
+                className="rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 p-3"
+              >
+                <p className="font-medium text-sm text-gray-900 dark:text-gray-100 line-clamp-1">
+                  {person.name}
+                </p>
+                <p className="text-xs text-gray-600 dark:text-gray-400 line-clamp-1">
+                  {person.job}
                 </p>
               </div>
             ))}

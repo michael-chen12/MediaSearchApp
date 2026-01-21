@@ -16,7 +16,7 @@ export function WatchlistProvider({ children }) {
     setWatchlist(prev => {
       const key = mediaType === 'movie' ? 'movies' : 'tvShows';
       // Check if already exists
-      if (prev[key].some(item => item.id === item.id)) {
+      if (prev[key].some(existing => existing.id === item.id)) {
         return prev;
       }
       return {

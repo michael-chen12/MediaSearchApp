@@ -1,7 +1,8 @@
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueries } from '@tanstack/react-query';
+import { useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { getTVShowDetails, getTVShowCredits, getSimilarTVShows, getImageUrl } from '../lib/tmdbClient';
-import { MovieDetailSkeleton, MovieGridSkeleton } from '../components/common/LoadingSkeleton';
+import { getTVShowDetails, getTVShowCredits, getSimilarTVShows, getTVSeasonDetails, getImageUrl } from '../lib/tmdbClient';
+import { MovieDetailSkeleton } from '../components/common/LoadingSkeleton';
 import ErrorMessage from '../components/common/ErrorMessage';
 import TVShowCard from '../components/common/TVShowCard';
 import { formatDate, formatRating, formatVoteCount } from '../utils/format';
@@ -12,6 +13,7 @@ export default function TVShowDetail() {
   const { id } = useParams();
   const { isFavorite, toggleFavorite } = useFavorites();
   const { isInWatchlist, toggleWatchlist } = useWatchlist();
+  const [expandedSeasons, setExpandedSeasons] = useState([]);
 
   const { data: tvShow, isLoading, error, refetch } = useQuery({
     queryKey: ['tvShowDetails', id],
@@ -29,6 +31,29 @@ export default function TVShowDetail() {
     queryFn: () => getSimilarTVShows(id, 1),
     enabled: !!tvShow,
   });
+
+  const normalizedExpandedSeasons = [...expandedSeasons].sort((a, b) => a - b);
+
+  const seasonDetailsQueries = useQueries({
+    queries: normalizedExpandedSeasons.map((seasonNumber) => ({
+      queryKey: ['tvSeasonDetails', id, seasonNumber],
+      queryFn: () => getTVSeasonDetails(id, seasonNumber),
+      enabled: !!tvShow,
+    })),
+  });
+
+  const seasonDetailsByNumber = normalizedExpandedSeasons.reduce((acc, seasonNumber, index) => {
+    acc[seasonNumber] = seasonDetailsQueries[index];
+    return acc;
+  }, {});
+
+  const toggleSeason = (seasonNumber) => {
+    setExpandedSeasons((prev) => (
+      prev.includes(seasonNumber)
+        ? prev.filter((num) => num !== seasonNumber)
+        : [...prev, seasonNumber]
+    ));
+  };
 
   if (isLoading) {
     return (
@@ -68,6 +93,17 @@ export default function TVShowDetail() {
   const posterUrl = getImageUrl(tvShow.poster_path, 'poster', 'large');
   const creators = tvShow.created_by || [];
   const cast = credits?.cast?.slice(0, 8) || [];
+  const crewMembers = credits?.crew?.filter((person) => person.job && person.name) || [];
+  const crewKeys = new Set();
+  const uniqueCrew = crewMembers.filter((person) => {
+    const key = `${person.id}-${person.job}`;
+    if (crewKeys.has(key)) {
+      return false;
+    }
+    crewKeys.add(key);
+    return true;
+  });
+  const displayedCrew = uniqueCrew.slice(0, 12);
   const similarTVShows = similarTVShowsData?.results?.slice(0, 6) || [];
   const seasons = tvShow.seasons?.filter(season => season.season_number > 0) || [];
 
@@ -248,6 +284,29 @@ export default function TVShowDetail() {
         </div>
       )}
 
+      {displayedCrew.length > 0 && (
+        <div className="mb-12">
+          <h2 className="text-2xl font-semibold text-gray-900 dark:text-gray-100 mb-6">
+            Crew
+          </h2>
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
+            {displayedCrew.map((person) => (
+              <div
+                key={`${person.id}-${person.job}`}
+                className="rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 p-3"
+              >
+                <p className="font-medium text-sm text-gray-900 dark:text-gray-100 line-clamp-1">
+                  {person.name}
+                </p>
+                <p className="text-xs text-gray-600 dark:text-gray-400 line-clamp-1">
+                  {person.job}
+                </p>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       {seasons.length > 0 && (
         <div className="mb-12">
           <h2 className="text-2xl font-semibold text-gray-900 dark:text-gray-100 mb-6">
@@ -293,6 +352,51 @@ export default function TVShowDetail() {
                     <p className="text-sm text-gray-700 dark:text-gray-300 line-clamp-2">
                       {season.overview}
                     </p>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => toggleSeason(season.season_number)}
+                    className="mt-3 text-sm font-medium text-primary-600 dark:text-primary-400 hover:underline"
+                    aria-expanded={expandedSeasons.includes(season.season_number)}
+                  >
+                    {expandedSeasons.includes(season.season_number) ? 'Hide Episodes' : 'Show Episodes'}
+                  </button>
+                  {expandedSeasons.includes(season.season_number) && (
+                    <div className="mt-3 border-t border-gray-200 dark:border-gray-700 pt-3">
+                      {seasonDetailsByNumber[season.season_number]?.isLoading && (
+                        <p className="text-sm text-gray-600 dark:text-gray-400">Loading episodes...</p>
+                      )}
+                      {seasonDetailsByNumber[season.season_number]?.error && (
+                        <p className="text-sm text-red-600 dark:text-red-400">Failed to load episodes.</p>
+                      )}
+                      {seasonDetailsByNumber[season.season_number]?.data && (
+                        <>
+                          {seasonDetailsByNumber[season.season_number].data.episodes?.length ? (
+                            <ul className="space-y-2">
+                              {seasonDetailsByNumber[season.season_number].data.episodes.map((episode) => (
+                                <li key={episode.id} className="flex flex-col gap-1">
+                                  <span className="text-sm font-medium text-gray-900 dark:text-gray-100">
+                                    E{episode.episode_number}. {episode.name}
+                                  </span>
+                                  <span className="text-xs text-gray-600 dark:text-gray-400">
+                                    {episode.air_date ? formatDate(episode.air_date) : 'Air date TBD'}
+                                  </span>
+                                  {episode.overview && (
+                                    <p className="text-xs text-gray-600 dark:text-gray-400 line-clamp-2">
+                                      {episode.overview}
+                                    </p>
+                                  )}
+                                </li>
+                              ))}
+                            </ul>
+                          ) : (
+                            <p className="text-sm text-gray-600 dark:text-gray-400">
+                              No episode details available.
+                            </p>
+                          )}
+                        </>
+                      )}
+                    </div>
                   )}
                 </div>
               </div>

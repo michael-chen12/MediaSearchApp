@@ -1,15 +1,15 @@
-import { useState } from 'react';
 import { useSearchParams, Link } from 'react-router-dom';
 import { useFavorites } from '../context/FavoritesContext';
 import TabNavigation from '../components/common/navigation/TabNavigation';
 import MovieCard from '../components/common/MovieCard';
 import TVShowCard from '../components/common/TVShowCard';
 import EmptyState from '../components/common/EmptyState';
+import Button from '../components/base/Button';
 
 export default function Favorites() {
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
   const mediaType = searchParams.get('mediaType') || 'movie';
-  const { getFavorites } = useFavorites();
+  const { getFavorites, removeFavorite } = useFavorites();
 
   const movieFavorites = getFavorites('movie');
   const tvFavorites = getFavorites('tv');
@@ -20,6 +20,9 @@ export default function Favorites() {
   ];
 
   const currentFavorites = mediaType === 'movie' ? movieFavorites : tvFavorites;
+  const handleTabChange = (newMediaType) => {
+    setSearchParams({ mediaType: newMediaType });
+  };
 
   return (
     <div>
@@ -33,7 +36,7 @@ export default function Favorites() {
       </div>
 
       <div className="mb-8">
-        <TabNavigation tabs={tabs} />
+        <TabNavigation tabs={tabs} activeTab={mediaType} onTabChange={handleTabChange} />
       </div>
 
       {currentFavorites.length === 0 ? (
@@ -52,9 +55,31 @@ export default function Favorites() {
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-6">
           {currentFavorites.map((item) =>
             mediaType === 'movie' ? (
-              <MovieCard key={item.id} movie={item} />
+              <div key={item.id} className="flex flex-col gap-2">
+                <MovieCard movie={item} />
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  className="w-full"
+                  onClick={() => removeFavorite(item.id, 'movie')}
+                  aria-label={`Remove ${item.title} from favorites`}
+                >
+                  Remove
+                </Button>
+              </div>
             ) : (
-              <TVShowCard key={item.id} tvShow={item} />
+              <div key={item.id} className="flex flex-col gap-2">
+                <TVShowCard tvShow={item} />
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  className="w-full"
+                  onClick={() => removeFavorite(item.id, 'tv')}
+                  aria-label={`Remove ${item.name} from favorites`}
+                >
+                  Remove
+                </Button>
+              </div>
             )
           )}
         </div>

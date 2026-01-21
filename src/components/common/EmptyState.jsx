@@ -1,6 +1,6 @@
 import { Link } from 'react-router-dom';
 
-export default function EmptyState({ title, message, showHomeLink = false }) {
+export default function EmptyState({ title, message, showHomeLink = false, children }) {
   return (
     <div className="flex flex-col items-center justify-center py-16 px-4 text-center">
       <svg
@@ -23,6 +23,7 @@ export default function EmptyState({ title, message, showHomeLink = false }) {
       <p className="text-gray-600 dark:text-gray-400 mb-6 max-w-md">
         {message || 'Try adjusting your search or filters to find what you\'re looking for.'}
       </p>
+      {children}
       {showHomeLink && (
         <Link
           to="/"
