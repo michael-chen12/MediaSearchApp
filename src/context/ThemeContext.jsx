@@ -14,7 +14,7 @@ export function ThemeProvider({ children }) {
   });
 
   useEffect(() => {
-    const root = window.document.documentElement;
+    const root = document.documentElement;
 
     if (theme === 'dark') {
       root.classList.add('dark');
@@ -26,12 +26,11 @@ export function ThemeProvider({ children }) {
   }, [theme]);
 
   const toggleTheme = () => {
-    setTheme(prev => {
-      const newTheme = prev === 'dark' ? 'light' : 'dark';
-      // Track analytics event
-      events.toggleTheme(newTheme);
-      return newTheme;
-    });
+    const newTheme = theme === 'dark' ? 'light' : 'dark';
+    console.log('Toggling theme from', theme, 'to', newTheme); // Debug log
+    setTheme(newTheme);
+    // Track analytics event
+    events.toggleTheme(newTheme);
   };
 
   return (

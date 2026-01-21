@@ -25,16 +25,16 @@ const queryClient = new QueryClient({
 
 createRoot(document.getElementById('root')).render(
   <StrictMode>
-    <FavoritesProvider>
-      <WatchlistProvider>
-        <QueryClientProvider client={queryClient}>
-          <ThemeProvider>
+    <ThemeProvider>
+      <FavoritesProvider>
+        <WatchlistProvider>
+          <QueryClientProvider client={queryClient}>
             <BrowserRouter>
               <App />
             </BrowserRouter>
-          </ThemeProvider>
-        </QueryClientProvider>
-      </WatchlistProvider>
-    </FavoritesProvider>
+          </QueryClientProvider>
+        </WatchlistProvider>
+      </FavoritesProvider>
+    </ThemeProvider>
   </StrictMode>,
 );
