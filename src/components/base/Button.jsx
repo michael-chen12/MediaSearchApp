@@ -7,7 +7,11 @@ export default function Button({
   type = 'button',
   ...props 
 }) {
-  const baseStyles = 'font-medium rounded-lg transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2 dark:focus:ring-offset-gray-900 disabled:opacity-50 disabled:cursor-not-allowed';
+  const isTab = variant === 'tab' || variant === 'tab-active';
+  const baseStyles = 'font-medium rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2 dark:focus:ring-offset-gray-900 disabled:opacity-50 disabled:cursor-not-allowed';
+  const motionStyles = isTab
+    ? 'transition-colors duration-200'
+    : 'transition-[transform,background-color,box-shadow,border-color,color] duration-300 ease-out hover:-translate-y-0.5 hover:shadow-lg active:translate-y-0 active:scale-[0.98]';
   
   const variants = {
     primary: 'bg-primary-600 text-white hover:bg-primary-700 dark:bg-primary-500 dark:hover:bg-primary-600',
@@ -28,7 +32,7 @@ export default function Button({
     <button
       type={type}
       disabled={disabled}
-      className={`${baseStyles} ${variants[variant]} ${sizes[size]} ${className}`}
+      className={`${baseStyles} ${motionStyles} ${variants[variant]} ${sizes[size]} ${className}`}
       {...props}
     >
       {children}

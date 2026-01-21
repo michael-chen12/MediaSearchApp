@@ -8,7 +8,7 @@ export default function MovieCard({ movie }) {
   return (
     <Link
       to={`/movie/${movie.id}`}
-      className="group block rounded-lg overflow-hidden bg-gray-100 dark:bg-gray-800 shadow-md hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1"
+      className="group block rounded-lg bg-gray-100 dark:bg-gray-800 shadow-md card-anim"
       aria-label={`View details for ${movie.title}`}
     >
       <div className="aspect-[2/3] relative overflow-hidden bg-gray-200 dark:bg-gray-700">
@@ -16,7 +16,7 @@ export default function MovieCard({ movie }) {
           <img
             src={posterUrl}
             alt={`${movie.title} poster`}
-            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+            className="w-full h-full object-cover card-image"
             loading="lazy"
           />
         ) : (
@@ -46,7 +46,7 @@ export default function MovieCard({ movie }) {
         )}
       </div>
 
-      <div className="p-4">
+      <div className="p-4 card-body">
         <h3 className="font-semibold text-gray-900 dark:text-gray-100 line-clamp-2 mb-1">
           {movie.title}
         </h3>

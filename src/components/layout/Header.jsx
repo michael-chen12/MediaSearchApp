@@ -20,8 +20,8 @@ export default function Header() {
   };
 
   return (
-    <header className="sticky top-0 z-50 bg-white dark:bg-gray-800 shadow-md">
-      <div className="container mx-auto px-4 py-4">
+    <header className="sticky top-0 z-50 bg-gradient-to-b from-gray-50 via-white to-gray-100 dark:from-gray-950 dark:via-gray-900 dark:to-gray-950 shadow-md">
+      <div className="container mx-auto px-6 sm:px-8 lg:px-10 py-4">
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
           <Link
             to="/"
@@ -38,7 +38,7 @@ export default function Header() {
           <div className="flex items-center gap-2">
             <Link
               to="/favorites"
-              className="relative p-2 rounded-lg bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
+              className="relative p-2 rounded-lg bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 transition-[transform,background-color,box-shadow] duration-200 hover:-translate-y-0.5 hover:shadow-lg"
               aria-label="View favorites"
             >
               <svg className="w-6 h-6 text-red-500" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
@@ -53,7 +53,7 @@ export default function Header() {
             
             <Link
               to="/watchlist"
-              className="relative p-2 rounded-lg bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
+              className="relative p-2 rounded-lg bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 transition-[transform,background-color,box-shadow] duration-200 hover:-translate-y-0.5 hover:shadow-lg"
               aria-label="View watchlist"
             >
               <svg className="w-6 h-6 text-blue-500" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
@@ -67,11 +67,11 @@ export default function Header() {
             </Link>
 
             <button
-            onClick={toggleTheme}
-            className="p-2 rounded-lg bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
-            aria-label={`Switch to ${theme === 'dark' ? 'light' : 'dark'} mode`}
-          >
-            {theme === 'dark' ? '☀️' : '🌙'}
+              onClick={toggleTheme}
+              className="p-2 rounded-lg bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 transition-[transform,background-color,box-shadow] duration-200 hover:-translate-y-0.5 hover:shadow-lg"
+              aria-label={`Switch to ${theme === 'dark' ? 'light' : 'dark'} mode`}
+            >
+              {theme === 'dark' ? '☀️' : '🌙'}
             </button>
           </div>
         </div>

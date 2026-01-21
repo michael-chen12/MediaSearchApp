@@ -7,7 +7,7 @@ export default function PersonCard({ person }) {
   return (
     <Link
       to={`/person/${person.id}`}
-      className="group block rounded-lg overflow-hidden bg-gray-100 dark:bg-gray-800 shadow-md hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1"
+      className="group block rounded-lg bg-gray-100 dark:bg-gray-800 shadow-md card-anim"
       aria-label={`View details for ${person.name}`}
     >
       <div className="aspect-[2/3] relative overflow-hidden bg-gray-200 dark:bg-gray-700">
@@ -15,7 +15,7 @@ export default function PersonCard({ person }) {
           <img
             src={profileUrl}
             alt={`${person.name} profile`}
-            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+            className="w-full h-full object-cover card-image"
             loading="lazy"
           />
         ) : (
@@ -32,7 +32,7 @@ export default function PersonCard({ person }) {
         )}
       </div>
 
-      <div className="p-4">
+      <div className="p-4 card-body">
         <h3 className="font-semibold text-gray-900 dark:text-gray-100 line-clamp-2 mb-1">
           {person.name}
         </h3>
