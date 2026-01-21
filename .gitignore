@@ -17,6 +17,7 @@ dist-ssr
 .env.local
 .env.production
 
+docs
 Plan2.md
 
 # Editor directories and files

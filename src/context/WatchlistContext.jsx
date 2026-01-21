@@ -1,4 +1,5 @@
 import { createContext, useContext, useState, useEffect } from 'react';
+import { events } from '../lib/analytics';
 
 const WatchlistContext = createContext();
 
@@ -19,6 +20,14 @@ export function WatchlistProvider({ children }) {
       if (prev[key].some(existing => existing.id === item.id)) {
         return prev;
       }
+      
+      // Track analytics event (corporate pattern: track conversions)
+      events.addToWatchlist(
+        mediaType,
+        item.id,
+        item.title || item.name
+      );
+      
       return {
         ...prev,
         [key]: [...prev[key], item]
@@ -29,6 +38,17 @@ export function WatchlistProvider({ children }) {
   const removeFromWatchlist = (id, mediaType) => {
     setWatchlist(prev => {
       const key = mediaType === 'movie' ? 'movies' : 'tvShows';
+      const item = prev[key].find(item => item.id === id);
+      
+      // Track analytics event
+      if (item) {
+        events.removeFromWatchlist(
+          mediaType,
+          id,
+          item.title || item.name
+        );
+      }
+      
       return {
         ...prev,
         [key]: prev[key].filter(item => item.id !== id)

@@ -1,4 +1,5 @@
 import { createContext, useContext, useState, useEffect } from 'react';
+import { events } from '../lib/analytics';
 
 const FavoritesContext = createContext();
 
@@ -19,6 +20,14 @@ export function FavoritesProvider({ children }) {
       if (prev[key].some(fav => fav.id === item.id)) {
         return prev;
       }
+      
+      // Track analytics event
+      events.addToFavorites(
+        mediaType,
+        item.id,
+        item.title || item.name
+      );
+      
       return {
         ...prev,
         [key]: [...prev[key], item]
@@ -29,6 +38,17 @@ export function FavoritesProvider({ children }) {
   const removeFavorite = (id, mediaType) => {
     setFavorites(prev => {
       const key = mediaType === 'movie' ? 'movies' : 'tvShows';
+      const item = prev[key].find(item => item.id === id);
+      
+      // Track analytics event
+      if (item) {
+        events.removeFromFavorites(
+          mediaType,
+          id,
+          item.title || item.name
+        );
+      }
+      
       return {
         ...prev,
         [key]: prev[key].filter(item => item.id !== id)

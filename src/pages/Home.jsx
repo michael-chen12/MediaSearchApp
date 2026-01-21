@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { useSearchParams } from 'react-router-dom';
 import { getTrendingMovies, getTrendingTVShows, getTrendingPeople } from '../lib/tmdbClient';
+import { events } from '../lib/analytics';
 import MovieCard from '../components/common/MovieCard';
 import TVShowCard from '../components/common/TVShowCard';
 import PersonCard from '../components/common/PersonCard';
@@ -31,10 +32,14 @@ export default function Home() {
   });
 
   const handleMediaTypeChange = (newMediaType) => {
+    // Track tab switch
+    events.switchTab(newMediaType, 'home_trending');
     setSearchParams({ mediaType: newMediaType, timeWindow });
   };
 
   const handleTimeWindowChange = (newTimeWindow) => {
+    // Track time window change
+    events.switchTab(newTimeWindow, 'home_time_window');
     setSearchParams({ mediaType, timeWindow: newTimeWindow });
   };
 

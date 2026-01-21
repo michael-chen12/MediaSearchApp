@@ -1,6 +1,8 @@
 import { useQuery } from '@tanstack/react-query';
 import { useParams, Link } from 'react-router-dom';
+import { useEffect } from 'react';
 import { getMovieDetails, getMovieCredits, getSimilarMovies, getImageUrl } from '../lib/tmdbClient';
+import { events } from '../lib/analytics';
 import { MovieDetailSkeleton } from '../components/common/LoadingSkeleton';
 import ErrorMessage from '../components/common/ErrorMessage';
 import MovieCard from '../components/common/MovieCard';
@@ -17,6 +19,13 @@ export default function MovieDetail() {
     queryKey: ['movieDetails', id],
     queryFn: () => getMovieDetails(id),
   });
+
+  // Track content view (corporate pattern: track engagement)
+  useEffect(() => {
+    if (movie) {
+      events.viewContent('movie', movie.id, movie.title);
+    }
+  }, [movie]);
 
   const { data: credits } = useQuery({
     queryKey: ['movieCredits', id],

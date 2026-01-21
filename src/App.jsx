@@ -1,5 +1,6 @@
 import { Routes, Route } from 'react-router-dom';
 import Layout from './components/layout/Layout';
+import AnalyticsTracker from './components/analytics/AnalyticsTracker';
 import Home from './pages/Home';
 import SearchResults from './pages/SearchResults';
 import MovieDetail from './pages/MovieDetail';
@@ -23,6 +24,7 @@ function NotFound() {
 export default function App() {
   return (
     <Layout>
+      <AnalyticsTracker />
       <Routes>
         <Route path="/" element={<Home />} />
         <Route path="/search" element={<SearchResults />} />

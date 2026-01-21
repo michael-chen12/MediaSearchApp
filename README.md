@@ -58,11 +58,20 @@ cp .env.example .env
 
 Edit `.env` and add your TMDB API key:
 
-```
+```env
+# Required: TMDB API Key
 TMDB_API_KEY=your_actual_tmdb_api_key_here
+
+# Optional: Analytics Configuration
+VITE_PLAUSIBLE_DOMAIN=yourdomain.com
+VITE_GA_MEASUREMENT_ID=G-XXXXXXXXXX
+VITE_RESPECT_DNT=true
 ```
 
-**Important**: Do NOT use `VITE_` prefix for the API key. The key must remain server-side only.
+**Important**: 
+- Do NOT use `VITE_` prefix for the TMDB API key (must remain server-side only)
+- Analytics keys can be left empty if you don't want tracking
+- See [docs/ANALYTICS.md](docs/ANALYTICS.md) for analytics setup guide
 
 ### 4. Running the Application
 

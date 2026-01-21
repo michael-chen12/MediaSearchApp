@@ -1,6 +1,8 @@
 import { useQuery } from '@tanstack/react-query';
 import { useSearchParams, Link } from 'react-router-dom';
+import { useEffect } from 'react';
 import { searchMovies, searchTVShows, searchPeople } from '../lib/tmdbClient';
+import { events } from '../lib/analytics';
 import MovieCard from '../components/common/MovieCard';
 import TVShowCard from '../components/common/TVShowCard';
 import PersonCard from '../components/common/PersonCard';
@@ -32,7 +34,16 @@ export default function SearchResults() {
     enabled: query.length > 0,
   });
 
+  // Track search events (corporate pattern: track search queries)
+  useEffect(() => {
+    if (query && data?.results) {
+      events.search(query, mediaType, data.results.length);
+    }
+  }, [query, mediaType, data]);
+
   const handleMediaTypeChange = (newMediaType) => {
+    // Track tab switch
+    events.switchTab(newMediaType, 'search_results');
     setSearchParams({ q: query, mediaType: newMediaType, page: '1' });
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };

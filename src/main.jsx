@@ -5,8 +5,12 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ThemeProvider } from './context/ThemeContext';
 import { FavoritesProvider } from './context/FavoritesContext';
 import { WatchlistProvider } from './context/WatchlistContext';
+import { initAnalytics } from './lib/analytics';
 import './index.css';
 import App from './App.jsx';
+
+// Initialize analytics (corporate pattern: initialize early)
+initAnalytics();
 
 const queryClient = new QueryClient({
   defaultOptions: {
