@@ -26,6 +26,7 @@ import EmptyState from '../components/common/EmptyState';
 import { MovieGridSkeleton } from '../components/common/LoadingSkeleton';
 import Modal from '../components/common/Modal';
 import NotesTagsModal from '../components/common/NotesTagsModal';
+import BulkTagsModal from '../components/common/BulkTagsModal';
 import FloatingModeActions from '../components/common/FloatingModeActions';
 import Button from '../components/base/Button';
 import {
@@ -35,6 +36,7 @@ import {
   getWatchProviderRegions,
   getWatchProviders,
 } from '../lib/tmdbClient';
+import { normalizeTags } from '../utils/annotations';
 
 function SortableItem({ id, disabled, className, children }) {
   const {
@@ -130,6 +132,8 @@ const SORT_OPTIONS = [
 const PROVIDER_CACHE_KEY = 'watch_providers_cache_v1';
 const PROVIDER_CACHE_TTL = 1000 * 60 * 60 * 24;
 const MAX_METADATA_FETCH = 25;
+const TAG_LIMIT = 10;
+const TAG_SPLIT_REGEX = /[,\n]+/;
 
 const providerCacheState = {
   loaded: false,
@@ -148,6 +152,8 @@ const normalizeNumber = (value) => {
   const numeric = Number(value);
   return Number.isFinite(numeric) ? numeric : undefined;
 };
+
+const normalizeTagValue = (value) => value.trim().replace(/\s+/g, ' ');
 
 const getItemGenreIds = (item) => {
   const normalizeIds = (ids) => ids
@@ -285,6 +291,8 @@ export default function Watchlist() {
   const [yearFilter, setYearFilter] = useState('');
   const [minRating, setMinRating] = useState('');
   const [genreFilters, setGenreFilters] = useState([]);
+  const [tagFilters, setTagFilters] = useState([]);
+  const [tagFilterInput, setTagFilterInput] = useState('');
   const [providerFilters, setProviderFilters] = useState([]);
   const [providerTypeFilters, setProviderTypeFilters] = useState([]);
   const [providerRegion, setProviderRegion] = useState(() => inferProviderRegion());
@@ -299,6 +307,7 @@ export default function Watchlist() {
   const [activeId, setActiveId] = useState(null);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [notesTagsModalItem, setNotesTagsModalItem] = useState(null);
+  const [isBulkTagsModalOpen, setIsBulkTagsModalOpen] = useState(false);
   const [toastMessage, setToastMessage] = useState('');
   const metadataEnrichedRef = useRef(new Set());
   const sortButtonRef = useRef(null);
@@ -336,6 +345,22 @@ export default function Watchlist() {
   ];
 
   const currentItems = mediaType === 'movie' ? movieItems : tvItems;
+  const availableTags = useMemo(() => {
+    const tagMap = new Map();
+    lists.forEach((list) => {
+      const movies = getListItems(list.id, 'movie');
+      const tvShows = getListItems(list.id, 'tv');
+      [...movies, ...tvShows].forEach((item) => {
+        normalizeTags(item.tags).forEach((tag) => {
+          const key = tag.toLowerCase();
+          if (!tagMap.has(key)) {
+            tagMap.set(key, tag);
+          }
+        });
+      });
+    });
+    return Array.from(tagMap.values()).sort((a, b) => a.localeCompare(b));
+  }, [getListItems, lists]);
   const { data: genreData } = useQuery({
     queryKey: ['genreList', mediaType],
     queryFn: () => getGenreList(mediaType),
@@ -437,6 +462,15 @@ export default function Watchlist() {
         }
       }
 
+      if (tagFilters.length > 0) {
+        const itemTags = normalizeTags(item.tags);
+        const tagSet = new Set(itemTags.map((tag) => tag.toLowerCase()));
+        const hasTag = tagFilters.some((tag) => tagSet.has(tag.toLowerCase()));
+        if (!hasTag) {
+          return false;
+        }
+      }
+
       if (providerFilterValues.length > 0 || providerTypeFilterValues.length > 0) {
         const providers = providerById.get(item.id);
         if (!providers || providers.providersById.size === 0) {
@@ -503,6 +537,7 @@ export default function Watchlist() {
     currentItems,
     filterQuery,
     genreFilters,
+    tagFilters,
     minRating,
     providerFilters,
     providerById,
@@ -528,6 +563,27 @@ export default function Watchlist() {
     () => currentItems.filter((item) => selectedIds.has(item.id)),
     [currentItems, selectedIds]
   );
+  const selectedTagOptions = useMemo(() => {
+    const tagMap = new Map();
+    selectedItems.forEach((item) => {
+      normalizeTags(item.tags).forEach((tag) => {
+        const key = tag.toLowerCase();
+        if (!tagMap.has(key)) {
+          tagMap.set(key, tag);
+        }
+      });
+    });
+    return Array.from(tagMap.values()).sort((a, b) => a.localeCompare(b));
+  }, [selectedItems]);
+  const tagFilterSuggestions = useMemo(() => {
+    if (!availableTags.length) return [];
+    const input = tagFilterInput.trim().toLowerCase();
+    const selected = new Set(tagFilters.map((tag) => tag.toLowerCase()));
+    return availableTags
+      .filter((tag) => !selected.has(tag.toLowerCase()))
+      .filter((tag) => (input ? tag.toLowerCase().includes(input) : true))
+      .slice(0, 8);
+  }, [availableTags, tagFilterInput, tagFilters]);
   const captureReorderSnapshot = () => {
     if (!activeList) return;
     reorderSnapshotRef.current = {
@@ -554,6 +610,44 @@ export default function Watchlist() {
         : [...prev, genreId]
     ));
   };
+  const addTagFilter = (tag) => {
+    const normalized = normalizeTagValue(tag);
+    if (!normalized) return;
+    setTagFilters((prev) => {
+      const key = normalized.toLowerCase();
+      if (prev.some((value) => value.toLowerCase() === key)) return prev;
+      return [...prev, normalized];
+    });
+    setTagFilterInput('');
+  };
+  const removeTagFilter = (tag) => {
+    const key = tag.toLowerCase();
+    setTagFilters((prev) => prev.filter((value) => value.toLowerCase() !== key));
+  };
+  const commitTagFilterInput = (value) => {
+    const tokens = value
+      .split(TAG_SPLIT_REGEX)
+      .map((token) => normalizeTagValue(token))
+      .filter(Boolean);
+    if (tokens.length === 0) return;
+    setTagFilters((prev) => {
+      const tagMap = new Map(prev.map((tag) => [tag.toLowerCase(), tag]));
+      tokens.forEach((token) => {
+        const key = token.toLowerCase();
+        if (!tagMap.has(key)) {
+          tagMap.set(key, token);
+        }
+      });
+      return Array.from(tagMap.values());
+    });
+  };
+  const handleTagFilterKeyDown = (event) => {
+    if (event.key === 'Enter' || event.key === ',') {
+      event.preventDefault();
+      commitTagFilterInput(tagFilterInput);
+      setTagFilterInput('');
+    }
+  };
   const toggleProviderFilter = (providerId) => {
     setProviderFilters((prev) => (
       prev.includes(providerId)
@@ -573,6 +667,8 @@ export default function Watchlist() {
     setYearFilter('');
     setMinRating('');
     setGenreFilters([]);
+    setTagFilters([]);
+    setTagFilterInput('');
     setProviderFilters([]);
     setProviderTypeFilters([]);
     setShowAllFilterChips(false);
@@ -633,6 +729,14 @@ export default function Watchlist() {
       });
     });
 
+    tagFilters.forEach((tag) => {
+      chips.push({
+        id: `tag-${tag}`,
+        label: `Tag: ${tag}`,
+        onRemove: () => removeTagFilter(tag),
+      });
+    });
+
     providerFilters.forEach((providerId) => {
       chips.push({
         id: `provider-${providerId}`,
@@ -663,6 +767,7 @@ export default function Watchlist() {
     yearFilter,
     minRating,
     genreFilters,
+    tagFilters,
     providerFilters,
     providerTypeFilters,
     providerRegion,
@@ -670,6 +775,7 @@ export default function Watchlist() {
     providerNameById,
     providerTypeLabels,
     regionNameByCode,
+    removeTagFilter,
   ]);
   const filterCount = filterChips.length;
   const sortChip = sortBy !== 'manual'
@@ -718,6 +824,7 @@ export default function Watchlist() {
     setDeleteMode(false);
     setIsDeleteModalOpen(false);
     setNotesTagsModalItem(null);
+    setIsBulkTagsModalOpen(false);
     setMoveTargetId('');
     setActiveId(null);
     metadataEnrichedRef.current = new Set();
@@ -778,12 +885,13 @@ export default function Watchlist() {
       || yearFilter.trim()
       || minRating.trim()
       || genreFilters.length > 0
+      || tagFilters.length > 0
       || providerFilters.length > 0
       || providerTypeFilters.length > 0
     ) {
       setIsReorderMode(false);
     }
-  }, [filterQuery, genreFilters, minRating, providerFilters, providerTypeFilters, yearFilter]);
+  }, [filterQuery, genreFilters, minRating, providerFilters, providerTypeFilters, tagFilters, yearFilter]);
 
   useEffect(() => {
     setGenreFilters([]);
@@ -800,6 +908,7 @@ export default function Watchlist() {
     || yearFilter.trim()
     || minRating.trim()
     || genreFilters.length > 0
+    || tagFilters.length > 0
     || providerFilters.length > 0
     || providerTypeFilters.length > 0
   );
@@ -859,6 +968,36 @@ export default function Watchlist() {
       );
     } catch (error) {
       const message = 'Failed to save notes. Changes kept locally.';
+      setToastMessage(message);
+      throw new Error(message);
+    }
+  };
+
+  const handleSaveBulkTags = async ({ addTags, removeTags }) => {
+    if (!activeList || selectedItems.length === 0) return;
+    const normalizedAddTags = normalizeTags(addTags);
+    const removeSet = new Set(normalizeTags(removeTags).map((tag) => tag.toLowerCase()));
+    if (normalizedAddTags.length === 0 && removeSet.size === 0) return;
+
+    const updates = selectedItems.map((item) => {
+      const currentTags = normalizeTags(item.tags);
+      const nextTags = currentTags.filter((tag) => !removeSet.has(tag.toLowerCase()));
+      normalizedAddTags.forEach((tag) => {
+        if (!nextTags.some((existing) => existing.toLowerCase() === tag.toLowerCase())) {
+          nextTags.push(tag);
+        }
+      });
+      if (nextTags.length > TAG_LIMIT) {
+        throw new Error(`Tag limit exceeded for ${item.title || item.name || 'item'}.`);
+      }
+      return { item, tags: nextTags };
+    });
+
+    const results = await Promise.allSettled(
+      updates.map(({ item, tags }) => updateItemDetails(activeList.id, item.id, mediaType, { tags }))
+    );
+    if (results.some((result) => result.status === 'rejected')) {
+      const message = 'Failed to save tags for some items. Changes kept locally.';
       setToastMessage(message);
       throw new Error(message);
     }
@@ -1245,7 +1384,7 @@ export default function Watchlist() {
           id="watchlist-filter-panel"
           className={`mt-5 grid gap-6 overflow-hidden transition-all duration-500 ease-in-out ${isFilterPanelOpen ? 'max-h-[1200px] opacity-100 translate-y-0' : 'max-h-0 opacity-0 -translate-y-2 pointer-events-none'}`}
         >
-          <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_120px_140px]">
+            <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_120px_140px]">
               <input
                 id="watchlist-filter"
                 type="text"
@@ -1277,6 +1416,71 @@ export default function Watchlist() {
                 aria-label="Minimum rating"
                 className="w-full rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 px-3 py-2 text-sm text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-primary-500"
               />
+            </div>
+
+            <div className="rounded-xl border border-gray-200 dark:border-gray-800 bg-gray-50/80 dark:bg-gray-950/40 p-4">
+              <div className="flex items-center justify-between">
+                <span className="text-sm font-semibold text-gray-700 dark:text-gray-200">Tags</span>
+                {tagFilters.length > 0 && (
+                  <span className="text-xs text-gray-500 dark:text-gray-400">
+                    {tagFilters.length} selected
+                  </span>
+                )}
+              </div>
+              <div className="mt-3 flex flex-wrap items-center gap-2">
+                {tagFilters.length === 0 ? (
+                  <span className="text-xs text-gray-500 dark:text-gray-400">No tags selected.</span>
+                ) : (
+                  tagFilters.map((tag) => (
+                    <span
+                      key={tag}
+                      className="inline-flex items-center gap-1 rounded-full border border-gray-200 bg-white px-2 py-1 text-xs font-semibold text-gray-700 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-200"
+                    >
+                      {tag}
+                      <button
+                        type="button"
+                        onClick={() => removeTagFilter(tag)}
+                        className="text-gray-400 hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-300"
+                        aria-label={`Remove tag ${tag}`}
+                      >
+                        x
+                      </button>
+                    </span>
+                  ))
+                )}
+              </div>
+              <input
+                id="watchlist-tags"
+                type="text"
+                value={tagFilterInput}
+                onChange={(event) => setTagFilterInput(event.target.value)}
+                onKeyDown={handleTagFilterKeyDown}
+                onBlur={() => {
+                  if (!tagFilterInput.trim()) return;
+                  commitTagFilterInput(tagFilterInput);
+                  setTagFilterInput('');
+                }}
+                placeholder="Filter by tags (press Enter or comma)"
+                aria-label="Filter by tags"
+                className="mt-3 w-full rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 px-3 py-2 text-sm text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-primary-500"
+              />
+              {tagFilterSuggestions.length > 0 && (
+                <div className="mt-3">
+                  <p className="text-xs text-gray-500 dark:text-gray-400">Suggestions</p>
+                  <div className="mt-2 flex flex-wrap gap-2">
+                    {tagFilterSuggestions.map((tag) => (
+                      <button
+                        key={tag}
+                        type="button"
+                        onClick={() => addTagFilter(tag)}
+                        className="inline-flex items-center rounded-full border border-gray-200 bg-white px-2 py-1 text-xs font-semibold text-gray-700 transition hover:border-gray-300 hover:text-gray-900 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-200 dark:hover:border-gray-600"
+                      >
+                        {tag}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
 
             <div className="flex flex-wrap items-center gap-4">
@@ -1409,6 +1613,15 @@ export default function Watchlist() {
           <span className="text-sm text-gray-600 dark:text-gray-400">
             {selectedIds.size} selected
           </span>
+          <Button
+            type="button"
+            variant="secondary"
+            size="sm"
+            onClick={() => setIsBulkTagsModalOpen(true)}
+            disabled={selectedIds.size === 0}
+          >
+            Edit tags
+          </Button>
           <select
             value={moveTargetId}
             onChange={(event) => setMoveTargetId(event.target.value)}
@@ -1583,11 +1796,21 @@ export default function Watchlist() {
         itemTitle={notesTagsModalItem?.title}
         initialNotes={notesTagsModalItem?.notes || ''}
         initialTags={notesTagsModalItem?.tags || []}
+        tagSuggestions={availableTags}
         onSave={handleSaveNotesTags}
         onClose={closeNotesTagsModal}
         helperText={source === 'local'
           ? 'Saved locally. Sign in to sync across devices.'
           : 'Tip: Cmd/Ctrl + Enter to save.'}
+      />
+
+      <BulkTagsModal
+        open={isBulkTagsModalOpen}
+        selectedCount={selectedItems.length}
+        existingTags={selectedTagOptions}
+        tagSuggestions={availableTags}
+        onSave={handleSaveBulkTags}
+        onClose={() => setIsBulkTagsModalOpen(false)}
       />
 
       <Modal
