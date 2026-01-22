@@ -47,7 +47,7 @@ export default function TVShowCard({ tvShow }) {
       </div>
 
       <div className="p-4 card-body">
-        <h3 className="font-semibold text-gray-900 dark:text-gray-100 line-clamp-2 mb-1">
+        <h3 className="font-semibold text-gray-900 dark:text-gray-100 line-clamp-2 leading-snug min-h-[2.75rem] mb-1">
           {tvShow.name}
         </h3>
         <p className="text-sm text-gray-600 dark:text-gray-400">

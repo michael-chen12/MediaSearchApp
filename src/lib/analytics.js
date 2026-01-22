@@ -216,21 +216,6 @@ export const events = {
       item_name: itemName,
     }),
 
-  // Favorites events
-  addToFavorites: (mediaType, itemId, itemName) =>
-    trackEvent('add_to_favorites', {
-      media_type: mediaType,
-      item_id: itemId,
-      item_name: itemName,
-    }),
-
-  removeFromFavorites: (mediaType, itemId, itemName) =>
-    trackEvent('remove_from_favorites', {
-      media_type: mediaType,
-      item_id: itemId,
-      item_name: itemName,
-    }),
-
   // Engagement events
   switchTab: (tabName, location) =>
     trackEvent('switch_tab', {

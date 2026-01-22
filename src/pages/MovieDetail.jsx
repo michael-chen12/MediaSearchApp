@@ -7,13 +7,11 @@ import { MovieDetailSkeleton } from '../components/common/LoadingSkeleton';
 import ErrorMessage from '../components/common/ErrorMessage';
 import MovieCard from '../components/common/MovieCard';
 import { formatDate, formatRuntime, formatCurrency, formatRating, formatVoteCount } from '../utils/format';
-import { useFavorites } from '../context/FavoritesContext';
-import { useWatchlist } from '../context/WatchlistContext';
+import { useLists } from '../context/ListsContext';
 
 export default function MovieDetail() {
   const { id } = useParams();
-  const { isFavorite, toggleFavorite } = useFavorites();
-  const { isInWatchlist, toggleWatchlist } = useWatchlist();
+  const { isInSystemList, toggleSystemList } = useLists();
 
   const { data: movie, isLoading, error, refetch } = useQuery({
     queryKey: ['movieDetails', id],
@@ -74,7 +72,6 @@ export default function MovieDetail() {
   }
 
   const backdropUrl = getImageUrl(movie.backdrop_path, 'backdrop', 'large');
-  const posterUrl = getImageUrl(movie.poster_path, 'poster', 'large');
   const director = credits?.crew?.find((person) => person.job === 'Director');
   const cast = credits?.cast?.slice(0, 8) || [];
   const crewMembers = credits?.crew?.filter((person) => person.job && person.name) || [];
@@ -89,144 +86,141 @@ export default function MovieDetail() {
   });
   const displayedCrew = uniqueCrew.slice(0, 12);
   const similarMovies = similarMoviesData?.results?.slice(0, 6) || [];
+  const posterUrl = getImageUrl(movie.poster_path, 'poster', 'large');
 
   return (
     <div>
-      <Link
-        to="/"
-        className="inline-flex items-center text-primary-600 dark:text-primary-400 hover:underline mb-6"
-      >
-        <svg className="w-5 h-5 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-        </svg>
-        Back to Home
-      </Link>
+      <section className="relative w-screen left-1/2 -translate-x-1/2 -mt-8 mb-10">
+        <div className="relative overflow-hidden">
+          {backdropUrl ? (
+            <img
+              src={backdropUrl}
+              alt={`${movie.title} backdrop`}
+              className="absolute inset-0 h-full w-full object-cover"
+            />
+          ) : (
+            <div className="absolute inset-0 bg-gray-900" />
+          )}
+          <div className="absolute inset-0 bg-gradient-to-r from-gray-950/90 via-gray-950/60 to-transparent" />
+          <div className="absolute inset-0 bg-gradient-to-t from-gray-950/70 via-transparent to-transparent" />
+          <div className="absolute inset-x-0 bottom-0 h-20 dark:bg-gradient-to-b dark:from-transparent dark:to-gray-900" />
 
-      {backdropUrl && (
-        <div className="relative h-[300px] md:h-[400px] rounded-xl overflow-hidden mb-8 bg-gray-200 dark:bg-gray-800">
-          <img
-            src={backdropUrl}
-            alt={`${movie.title} backdrop`}
-            className="w-full h-full object-cover"
-          />
-          <div className="absolute inset-0 bg-gradient-to-t from-white dark:from-gray-900 via-transparent to-transparent" />
-          
-          {/* Floating Action Buttons */}
-          <div className="absolute top-4 right-4 flex gap-2">
+          <div className="absolute right-6 top-6 z-20">
             <button
-              onClick={() => toggleFavorite({
+              onClick={() => toggleSystemList('watchlist', {
                 id: movie.id,
                 title: movie.title,
                 poster_path: movie.poster_path,
                 release_date: movie.release_date
               }, 'movie')}
               className="p-3 rounded-full bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm hover:bg-white dark:hover:bg-gray-800 transition-all shadow-lg hover:scale-110"
-              aria-label={isFavorite(movie.id, 'movie') ? 'Remove from favorites' : 'Add to favorites'}
+              aria-label={isInSystemList('watchlist', movie.id, 'movie') ? 'Remove from watchlist' : 'Add to watchlist'}
             >
-              <svg className="w-6 h-6" fill={isFavorite(movie.id, 'movie') ? 'currentColor' : 'none'} stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" className={isFavorite(movie.id, 'movie') ? 'text-red-500' : 'text-gray-700 dark:text-gray-300'} />
+              <svg className="w-6 h-6" fill={isInSystemList('watchlist', movie.id, 'movie') ? 'currentColor' : 'none'} stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z" className={isInSystemList('watchlist', movie.id, 'movie') ? 'text-blue-500' : 'text-gray-700 dark:text-gray-300'} />
               </svg>
             </button>
-            
-            <button
-              onClick={() => toggleWatchlist({
-                id: movie.id,
-                title: movie.title,
-                poster_path: movie.poster_path,
-                release_date: movie.release_date
-              }, 'movie')}
-              className="p-3 rounded-full bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm hover:bg-white dark:hover:bg-gray-800 transition-all shadow-lg hover:scale-110"
-              aria-label={isInWatchlist(movie.id, 'movie') ? 'Remove from watchlist' : 'Add to watchlist'}
+          </div>
+
+          <div className="relative z-10 container mx-auto px-6 sm:px-8 lg:px-10 pt-4 sm:pt-6 md:pt-10 pb-5">
+            <Link
+              to="/"
+              className="inline-flex items-center text-gray-200 hover:text-white transition-colors"
             >
-              <svg className="w-6 h-6" fill={isInWatchlist(movie.id, 'movie') ? 'currentColor' : 'none'} stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z" className={isInWatchlist(movie.id, 'movie') ? 'text-blue-500' : 'text-gray-700 dark:text-gray-300'} />
+              <svg className="w-5 h-5 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
               </svg>
-            </button>
+              Back to Home
+            </Link>
+
+            <div className="mt-4 sm:mt-6 max-w-5xl">
+              <div className={`grid items-start gap-4 sm:gap-6 md:gap-8 ${posterUrl ? 'grid-cols-[auto_minmax(0,1fr)]' : ''}`}>
+                {posterUrl && (
+                  <div className="w-[140px] sm:w-[160px] md:w-[200px] lg:w-[220px] shrink-0 aspect-[2/3]">
+                    <img
+                      src={posterUrl}
+                      alt={`${movie.title} poster`}
+                      className="h-full w-full rounded-xl object-cover shadow-2xl ring-1 ring-white/10"
+                    />
+                  </div>
+                )}
+
+                <div className="text-gray-100">
+                  <h1 className="text-2xl sm:text-3xl md:text-5xl font-bold leading-tight mb-2">
+                    {movie.title}
+                  </h1>
+
+                  {movie.tagline && (
+                    <p className="text-base sm:text-lg md:text-xl text-gray-200/80 italic mb-2">
+                      "{movie.tagline}"
+                    </p>
+                  )}
+
+                  {movie.vote_average > 0 && (
+                    <div className="flex items-center gap-2 mb-3 sm:mb-4">
+                      <span className="text-xl">⭐</span>
+                      <span className="text-xl font-semibold">
+                        {formatRating(movie.vote_average)}
+                      </span>
+                      <span className="text-gray-200/70">
+                        ({formatVoteCount(movie.vote_count)} votes)
+                      </span>
+                    </div>
+                  )}
+
+                  <div className="flex flex-wrap gap-2 mb-4">
+                    {movie.genres?.map((genre) => (
+                      <span
+                        key={genre.id}
+                        className="px-3 py-1 rounded-full bg-white/10 text-white/90 text-xs font-semibold border border-white/10"
+                      >
+                        {genre.name}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
-      )}
+      </section>
 
-      <div className="grid md:grid-cols-[300px,1fr] gap-8 mb-12">
-        {posterUrl && (
-          <div className="hidden md:block">
-            <img
-              src={posterUrl}
-              alt={`${movie.title} poster`}
-              className="w-full rounded-lg shadow-xl"
-            />
-          </div>
-        )}
+      <section className="mb-12">
+        <div className="max-w-4xl">
+          <p className="text-sm md:text-base text-gray-700 dark:text-gray-300 leading-relaxed">
+            {movie.overview || 'No overview available.'}
+          </p>
 
-        <div>
-          <h1 className="text-4xl md:text-5xl font-bold text-gray-900 dark:text-gray-100 mb-2">
-            {movie.title}
-          </h1>
-
-          {movie.tagline && (
-            <p className="text-xl text-gray-600 dark:text-gray-400 italic mb-4">
-              "{movie.tagline}"
-            </p>
-          )}
-
-          <div className="flex flex-wrap items-center gap-4 mb-6">
-            {movie.vote_average > 0 && (
-              <div className="flex items-center gap-2">
-                <span className="text-2xl">⭐</span>
-                <span className="text-2xl font-semibold text-gray-900 dark:text-gray-100">
-                  {formatRating(movie.vote_average)}
-                </span>
-                <span className="text-gray-600 dark:text-gray-400">
-                  ({formatVoteCount(movie.vote_count)} votes)
-                </span>
-              </div>
-            )}
-          </div>
-
-          <div className="flex flex-wrap gap-2 mb-6">
-            {movie.genres?.map((genre) => (
-              <span
-                key={genre.id}
-                className="px-3 py-1 bg-primary-100 dark:bg-primary-900/30 text-primary-800 dark:text-primary-300 rounded-full text-sm font-medium"
-              >
-                {genre.name}
-              </span>
-            ))}
-          </div>
-
-          <div className="grid sm:grid-cols-2 gap-4 mb-6 text-gray-700 dark:text-gray-300">
+          <div className="mt-6 grid gap-3 sm:grid-cols-2 text-sm text-gray-700 dark:text-gray-300">
             <div>
-              <span className="font-semibold">Release Date:</span> {formatDate(movie.release_date)}
+              <span className="font-semibold text-gray-900 dark:text-gray-100">Release Date:</span>{' '}
+              {formatDate(movie.release_date)}
             </div>
             <div>
-              <span className="font-semibold">Runtime:</span> {formatRuntime(movie.runtime)}
+              <span className="font-semibold text-gray-900 dark:text-gray-100">Runtime:</span>{' '}
+              {formatRuntime(movie.runtime)}
             </div>
             {movie.budget > 0 && (
               <div>
-                <span className="font-semibold">Budget:</span> {formatCurrency(movie.budget)}
+                <span className="font-semibold text-gray-900 dark:text-gray-100">Budget:</span>{' '}
+                {formatCurrency(movie.budget)}
               </div>
             )}
             {movie.revenue > 0 && (
               <div>
-                <span className="font-semibold">Revenue:</span> {formatCurrency(movie.revenue)}
+                <span className="font-semibold text-gray-900 dark:text-gray-100">Revenue:</span>{' '}
+                {formatCurrency(movie.revenue)}
               </div>
             )}
             {director && (
               <div className="sm:col-span-2">
-                <span className="font-semibold">Director:</span> {director.name}
+                <span className="font-semibold text-gray-900 dark:text-gray-100">Director:</span>{' '}
+                {director.name}
               </div>
             )}
           </div>
-
-          <div className="mb-6">
-            <h2 className="text-2xl font-semibold text-gray-900 dark:text-gray-100 mb-3">
-              Overview
-            </h2>
-            <p className="text-gray-700 dark:text-gray-300 leading-relaxed">
-              {movie.overview || 'No overview available.'}
-            </p>
-          </div>
         </div>
-      </div>
+      </section>
 
       {/* Collection Section */}
       {movie.belongs_to_collection && (

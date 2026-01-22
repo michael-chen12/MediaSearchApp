@@ -84,7 +84,7 @@ VITE_RESPECT_DNT=true
 2. (Optional) Enable Google provider and add redirect URLs (e.g. `http://localhost:5173/login`).
 3. Run the SQL below in the Supabase SQL editor to create tables and policies.
 4. If Supabase env vars are missing, the app falls back to localStorage-only lists.
-5. On first login, existing local watchlist/favorites are migrated once to Supabase.
+5. On first login, existing local watchlist data is migrated once to Supabase.
 
 ```sql
 create extension if not exists \"pgcrypto\";
@@ -103,11 +103,11 @@ create table if not exists lists (
   id uuid primary key default gen_random_uuid(),
   user_id uuid not null references auth.users(id) on delete cascade,
   name text not null,
-  type text not null check (type in ('watchlist', 'favorites')),
-  sort_order int default 0,
+  type text not null check (type in ('watchlist', 'custom')),
+  position int default 0,
   created_at timestamptz default now(),
   updated_at timestamptz default now(),
-  unique (user_id, type)
+  unique (user_id, name)
 );
 
 create table if not exists list_items (
@@ -120,11 +120,14 @@ create table if not exists list_items (
   release_date text,
   added_at timestamptz default now(),
   notes text,
+  tags text[],
+  position int default 0,
   extra jsonb,
   unique (list_id, media_type, media_id)
 );
 
 create index if not exists list_items_list_id_idx on list_items (list_id);
+create index if not exists list_items_position_idx on list_items (list_id, position);
 create index if not exists list_items_media_idx on list_items (media_type, media_id);
 
 alter table lists enable row level security;
@@ -181,6 +184,16 @@ create policy \"List items are deletable by owner\" on list_items
         and lists.user_id = auth.uid()
     )
   );
+```
+
+Migration notes (existing projects):
+```sql
+alter table lists drop constraint if exists lists_user_id_type_key;
+alter table lists add column if not exists position int default 0;
+alter table lists add constraint lists_user_id_name_key unique (user_id, name);
+
+alter table list_items add column if not exists position int default 0;
+alter table list_items add column if not exists tags text[];
 ```
 
 Optional profile avatars (Supabase Storage):
@@ -254,8 +267,7 @@ Then configure your frontend to proxy API requests to port 3001.
 - `/search` - Search page (placeholder)
 - `/login` - Log in
 - `/signup` - Create account
-- `/favorites` - Favorites list
-- `/watchlist` - Watchlist
+- `/watchlist` - Watchlist & custom lists
 - `/profile` - Profile settings
 
 ## API Endpoints (Serverless Proxy)

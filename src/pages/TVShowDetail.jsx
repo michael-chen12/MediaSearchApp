@@ -6,13 +6,11 @@ import { MovieDetailSkeleton } from '../components/common/LoadingSkeleton';
 import ErrorMessage from '../components/common/ErrorMessage';
 import TVShowCard from '../components/common/TVShowCard';
 import { formatDate, formatRating, formatVoteCount } from '../utils/format';
-import { useFavorites } from '../context/FavoritesContext';
-import { useWatchlist } from '../context/WatchlistContext';
+import { useLists } from '../context/ListsContext';
 
 export default function TVShowDetail() {
   const { id } = useParams();
-  const { isFavorite, toggleFavorite } = useFavorites();
-  const { isInWatchlist, toggleWatchlist } = useWatchlist();
+  const { isInSystemList, toggleSystemList } = useLists();
   const [expandedSeasons, setExpandedSeasons] = useState([]);
 
   const { data: tvShow, isLoading, error, refetch } = useQuery({
@@ -90,7 +88,6 @@ export default function TVShowDetail() {
   }
 
   const backdropUrl = getImageUrl(tvShow.backdrop_path, 'backdrop', 'large');
-  const posterUrl = getImageUrl(tvShow.poster_path, 'poster', 'large');
   const creators = tvShow.created_by || [];
   const cast = credits?.cast?.slice(0, 8) || [];
   const crewMembers = credits?.crew?.filter((person) => person.job && person.name) || [];
@@ -106,147 +103,140 @@ export default function TVShowDetail() {
   const displayedCrew = uniqueCrew.slice(0, 12);
   const similarTVShows = similarTVShowsData?.results?.slice(0, 6) || [];
   const seasons = tvShow.seasons?.filter(season => season.season_number > 0) || [];
+  const posterUrl = getImageUrl(tvShow.poster_path, 'poster', 'large');
 
   return (
-    <div>
-      <Link
-        to="/"
-        className="inline-flex items-center text-primary-600 dark:text-primary-400 hover:underline mb-6"
-      >
-        <svg className="w-5 h-5 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-        </svg>
-        Back to Home
-      </Link>
-
-      {backdropUrl && (
-        <div className="relative h-[300px] md:h-[400px] rounded-xl overflow-hidden mb-8 bg-gray-200 dark:bg-gray-800">
-          <img
-            src={backdropUrl}
-            alt={`${tvShow.name} backdrop`}
-            className="w-full h-full object-cover"
-          />
-          <div className="absolute inset-0 bg-gradient-to-t from-white dark:from-gray-900 via-transparent to-transparent" />
-          
-          {/* Floating Action Buttons */}
-          <div className="absolute top-4 right-4 flex gap-2">
-            <button
-              onClick={() => toggleFavorite({
-                id: tvShow.id,
-                name: tvShow.name,
-                poster_path: tvShow.poster_path,
-                first_air_date: tvShow.first_air_date
-              }, 'tv')}
-              className="p-3 rounded-full bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm hover:bg-white dark:hover:bg-gray-800 transition-all shadow-lg hover:scale-110"
-              aria-label={isFavorite(tvShow.id, 'tv') ? 'Remove from favorites' : 'Add to favorites'}
-            >
-              <svg className="w-6 h-6" fill={isFavorite(tvShow.id, 'tv') ? 'currentColor' : 'none'} stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" className={isFavorite(tvShow.id, 'tv') ? 'text-red-500' : 'text-gray-700 dark:text-gray-300'} />
-              </svg>
-            </button>
-            
-            <button
-              onClick={() => toggleWatchlist({
-                id: tvShow.id,
-                name: tvShow.name,
-                poster_path: tvShow.poster_path,
-                first_air_date: tvShow.first_air_date
-              }, 'tv')}
-              className="p-3 rounded-full bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm hover:bg-white dark:hover:bg-gray-800 transition-all shadow-lg hover:scale-110"
-              aria-label={isInWatchlist(tvShow.id, 'tv') ? 'Remove from watchlist' : 'Add to watchlist'}
-            >
-              <svg className="w-6 h-6" fill={isInWatchlist(tvShow.id, 'tv') ? 'currentColor' : 'none'} stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z" className={isInWatchlist(tvShow.id, 'tv') ? 'text-blue-500' : 'text-gray-700 dark:text-gray-300'} />
-              </svg>
-            </button>
-          </div>
-        </div>
-      )}
-
-      <div className="grid md:grid-cols-[300px,1fr] gap-8 mb-12">
-        {posterUrl && (
-          <div className="hidden md:block">
+    <div className="pt-6 md:pt-12">
+      <section className="relative w-screen left-1/2 -translate-x-1/2 -mt-6 md:-mt-12 mb-12">
+        <div className="relative min-h-[420px] md:min-h-[540px] overflow-hidden">
+          {backdropUrl ? (
             <img
-              src={posterUrl}
-              alt={`${tvShow.name} poster`}
-              className="w-full rounded-lg shadow-xl"
+              src={backdropUrl}
+              alt={`${tvShow.name} backdrop`}
+              className="absolute inset-0 h-full w-full object-cover"
             />
-          </div>
-        )}
-
-        <div>
-          <h1 className="text-4xl md:text-5xl font-bold text-gray-900 dark:text-gray-100 mb-2">
-            {tvShow.name}
-          </h1>
-
-          {tvShow.tagline && (
-            <p className="text-xl text-gray-600 dark:text-gray-400 italic mb-4">
-              "{tvShow.tagline}"
-            </p>
+          ) : (
+            <div className="absolute inset-0 bg-gray-900" />
           )}
+          <div className="absolute inset-0 bg-gradient-to-r from-gray-950/90 via-gray-950/60 to-transparent" />
+          <div className="absolute inset-0 bg-gradient-to-t from-gray-950/70 via-transparent to-transparent" />
 
-          <div className="flex flex-wrap items-center gap-4 mb-6">
-            {tvShow.vote_average > 0 && (
-              <div className="flex items-center gap-2">
-                <span className="text-2xl">⭐</span>
-                <span className="text-2xl font-semibold text-gray-900 dark:text-gray-100">
-                  {formatRating(tvShow.vote_average)}
-                </span>
-                <span className="text-gray-600 dark:text-gray-400">
-                  ({formatVoteCount(tvShow.vote_count)} votes)
-                </span>
+          <div className="absolute right-6 top-6 z-20">
+            <button
+              onClick={() => toggleSystemList('watchlist', {
+                id: tvShow.id,
+                name: tvShow.name,
+                poster_path: tvShow.poster_path,
+                first_air_date: tvShow.first_air_date
+              }, 'tv')}
+              className="p-3 rounded-full bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm hover:bg-white dark:hover:bg-gray-800 transition-all shadow-lg hover:scale-110"
+              aria-label={isInSystemList('watchlist', tvShow.id, 'tv') ? 'Remove from watchlist' : 'Add to watchlist'}
+            >
+              <svg className="w-6 h-6" fill={isInSystemList('watchlist', tvShow.id, 'tv') ? 'currentColor' : 'none'} stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z" className={isInSystemList('watchlist', tvShow.id, 'tv') ? 'text-blue-500' : 'text-gray-700 dark:text-gray-300'} />
+              </svg>
+            </button>
+          </div>
+
+          <div className="relative z-10 px-6 sm:px-8 lg:px-10 py-8 md:py-12">
+            <Link
+              to="/"
+              className="inline-flex items-center text-gray-200 hover:text-white transition-colors"
+            >
+              <svg className="w-5 h-5 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+              </svg>
+              Back to Home
+            </Link>
+
+            <div className="mt-6 max-w-5xl">
+              <div className="flex flex-col sm:flex-row gap-6 md:gap-8">
+                {posterUrl && (
+                  <div className="w-32 sm:w-40 md:w-52 shrink-0">
+                    <img
+                      src={posterUrl}
+                      alt={`${tvShow.name} poster`}
+                      className="w-full rounded-xl shadow-2xl ring-1 ring-white/10"
+                    />
+                  </div>
+                )}
+
+                <div className="text-gray-100">
+                  <h1 className="text-3xl md:text-5xl font-bold mb-2">
+                    {tvShow.name}
+                  </h1>
+
+                  {tvShow.tagline && (
+                    <p className="text-lg md:text-xl text-gray-200/80 italic mb-3">
+                      "{tvShow.tagline}"
+                    </p>
+                  )}
+
+                  {tvShow.vote_average > 0 && (
+                    <div className="flex items-center gap-2 mb-4">
+                      <span className="text-xl">⭐</span>
+                      <span className="text-xl font-semibold">
+                        {formatRating(tvShow.vote_average)}
+                      </span>
+                      <span className="text-gray-200/70">
+                        ({formatVoteCount(tvShow.vote_count)} votes)
+                      </span>
+                    </div>
+                  )}
+
+                  <div className="flex flex-wrap gap-2 mb-4">
+                    {tvShow.genres?.map((genre) => (
+                      <span
+                        key={genre.id}
+                        className="px-3 py-1 rounded-full bg-white/10 text-white/90 text-xs font-semibold border border-white/10"
+                      >
+                        {genre.name}
+                      </span>
+                    ))}
+                  </div>
+                </div>
               </div>
-            )}
-          </div>
 
-          <div className="flex flex-wrap gap-2 mb-6">
-            {tvShow.genres?.map((genre) => (
-              <span
-                key={genre.id}
-                className="px-3 py-1 bg-primary-100 dark:bg-primary-900/30 text-primary-800 dark:text-primary-300 rounded-full text-sm font-medium"
-              >
-                {genre.name}
-              </span>
-            ))}
-          </div>
+              <div className="mt-6 max-w-3xl text-gray-100">
+                <p className="text-sm md:text-base text-gray-200/80 leading-relaxed line-clamp-4">
+                  {tvShow.overview || 'No overview available.'}
+                </p>
 
-          <div className="grid sm:grid-cols-2 gap-4 mb-6 text-gray-700 dark:text-gray-300">
-            <div>
-              <span className="font-semibold">First Air Date:</span> {formatDate(tvShow.first_air_date)}
+                <div className="mt-5 grid gap-2 sm:grid-cols-2 text-sm text-gray-200/85">
+                  <div>
+                    <span className="font-semibold text-white">First Air Date:</span>{' '}
+                    {formatDate(tvShow.first_air_date)}
+                  </div>
+                  {tvShow.status && (
+                    <div>
+                      <span className="font-semibold text-white">Status:</span>{' '}
+                      {tvShow.status}
+                    </div>
+                  )}
+                  {tvShow.number_of_seasons && (
+                    <div>
+                      <span className="font-semibold text-white">Seasons:</span>{' '}
+                      {tvShow.number_of_seasons}
+                    </div>
+                  )}
+                  {tvShow.number_of_episodes && (
+                    <div>
+                      <span className="font-semibold text-white">Episodes:</span>{' '}
+                      {tvShow.number_of_episodes}
+                    </div>
+                  )}
+                  {creators.length > 0 && (
+                    <div className="sm:col-span-2">
+                      <span className="font-semibold text-white">Created by:</span>{' '}
+                      {creators.map((creator) => creator.name).join(', ')}
+                    </div>
+                  )}
+                </div>
+              </div>
             </div>
-            {tvShow.status && (
-              <div>
-                <span className="font-semibold">Status:</span> {tvShow.status}
-              </div>
-            )}
-            {tvShow.number_of_seasons && (
-              <div>
-                <span className="font-semibold">Seasons:</span> {tvShow.number_of_seasons}
-              </div>
-            )}
-            {tvShow.number_of_episodes && (
-              <div>
-                <span className="font-semibold">Episodes:</span> {tvShow.number_of_episodes}
-              </div>
-            )}
-            {creators.length > 0 && (
-              <div className="sm:col-span-2">
-                <span className="font-semibold">Created by:</span>{' '}
-                {creators.map(creator => creator.name).join(', ')}
-              </div>
-            )}
-          </div>
-
-          <div className="mb-6">
-            <h2 className="text-2xl font-semibold text-gray-900 dark:text-gray-100 mb-3">
-              Overview
-            </h2>
-            <p className="text-gray-700 dark:text-gray-300 leading-relaxed">
-              {tvShow.overview || 'No overview available.'}
-            </p>
           </div>
         </div>
-      </div>
+      </section>
 
       {cast.length > 0 && (
         <div className="mb-12">
