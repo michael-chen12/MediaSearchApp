@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { events } from '../lib/analytics';
 import { isSupabaseConfigured, supabase } from '../lib/supabaseClient';
 import { useAuth } from './AuthContext';
+import { normalizeNotes, normalizeTags } from '../utils/annotations';
 
 const ListsContext = createContext();
 
@@ -47,6 +48,25 @@ const normalizeListItem = (item) => {
     ...(popularity !== undefined ? { popularity } : {}),
     ...(voteAverage !== undefined ? { vote_average: voteAverage } : {}),
   };
+};
+
+const normalizeItemUpdates = (updates) => {
+  const stateUpdates = { ...updates };
+  const remoteUpdates = { ...updates };
+
+  if (Object.prototype.hasOwnProperty.call(updates, 'notes')) {
+    const notes = normalizeNotes(updates.notes);
+    stateUpdates.notes = notes;
+    remoteUpdates.notes = notes || null;
+  }
+
+  if (Object.prototype.hasOwnProperty.call(updates, 'tags')) {
+    const tags = normalizeTags(updates.tags);
+    stateUpdates.tags = tags;
+    remoteUpdates.tags = tags.length > 0 ? tags : null;
+  }
+
+  return { stateUpdates, remoteUpdates };
 };
 
 const buildLocalState = (overrides = {}) => ({
@@ -106,6 +126,10 @@ const buildListItemPayload = (listId, item, mediaType, position) => {
   const normalizedItem = normalizeListItem(item);
   const title = mediaType === 'movie' ? item.title : item.name;
   const releaseDate = mediaType === 'movie' ? item.release_date : item.first_air_date;
+  const notesSource = item.notes ?? item.extra?.notes;
+  const tagsSource = item.tags ?? item.extra?.tags;
+  const notes = normalizeNotes(notesSource);
+  const tags = normalizeTags(tagsSource);
 
   return {
     list_id: listId,
@@ -115,8 +139,8 @@ const buildListItemPayload = (listId, item, mediaType, position) => {
     poster_path: item.poster_path || null,
     release_date: releaseDate || null,
     added_at: item.added_at || new Date().toISOString(),
-    notes: item.notes || null,
-    tags: item.tags || null,
+    notes: notes || null,
+    tags: tags.length > 0 ? tags : null,
     position: Number.isFinite(position) ? position : item.position || 0,
     extra: normalizedItem,
   };
@@ -129,6 +153,8 @@ const mapRemoteItems = (items) => items.reduce((acc, item) => {
   }
 
   const extra = item.extra && typeof item.extra === 'object' ? item.extra : {};
+  const notesSource = item.notes ?? extra.notes;
+  const tagsSource = item.tags ?? extra.tags;
   const normalized = normalizeListItem({
     ...extra,
     id: item.media_id,
@@ -141,8 +167,8 @@ const mapRemoteItems = (items) => items.reduce((acc, item) => {
     first_air_date: extra.first_air_date || item.release_date || null,
     added_at: item.added_at || extra.added_at || null,
     position: item.position ?? 0,
-    notes: item.notes || null,
-    tags: item.tags || null,
+    notes: normalizeNotes(notesSource),
+    tags: normalizeTags(tagsSource),
   });
 
   if (item.media_type === 'movie') {
@@ -493,6 +519,10 @@ export function ListsProvider({ children }) {
       return;
     }
     const normalizedItem = normalizeListItem(item);
+    const notesSource = item.notes ?? item.extra?.notes;
+    const tagsSource = item.tags ?? item.extra?.tags;
+    const normalizedNotes = normalizeNotes(notesSource);
+    const normalizedTags = normalizeTags(tagsSource);
     setItemsByListId((prev) => {
       const listItems = prev[listId] || emptyItems();
       const key = mediaType === 'movie' ? 'movies' : 'tvShows';
@@ -503,6 +533,8 @@ export function ListsProvider({ children }) {
 
       const nextItem = {
         ...normalizedItem,
+        notes: normalizedNotes,
+        tags: normalizedTags,
         added_at: normalizedItem.added_at || new Date().toISOString(),
         position: listItems[key].length,
       };
@@ -609,6 +641,7 @@ export function ListsProvider({ children }) {
   }, [reorderItemsMutation, user]);
 
   const updateItemDetails = useCallback((listId, id, mediaType, updates) => {
+    const { stateUpdates, remoteUpdates } = normalizeItemUpdates(updates);
     let listItemId = null;
     setItemsByListId((prev) => {
       const listItems = prev[listId] || emptyItems();
@@ -618,7 +651,7 @@ export function ListsProvider({ children }) {
         listItemId = item.list_item_id;
         return {
           ...item,
-          ...updates,
+          ...stateUpdates,
         };
       });
 
@@ -632,8 +665,9 @@ export function ListsProvider({ children }) {
     });
 
     if (user && isSupabaseConfigured && listItemId) {
-      updateItemMutation.mutate({ listItemId, updates });
+      return updateItemMutation.mutateAsync({ listItemId, updates: remoteUpdates });
     }
+    return Promise.resolve();
   }, [updateItemMutation, user]);
 
   const createList = useCallback(async (name) => {

@@ -1,6 +1,16 @@
 import { useEffect, useId } from 'react';
 
-export default function Modal({ open, onClose, title, children, footer }) {
+export default function Modal({
+  open,
+  onClose,
+  title,
+  children,
+  footer,
+  containerClassName = '',
+  panelClassName = '',
+  headerClassName = '',
+  bodyClassName = '',
+}) {
   const titleId = useId();
 
   useEffect(() => {
@@ -17,19 +27,19 @@ export default function Modal({ open, onClose, title, children, footer }) {
   if (!open) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center px-4 py-6">
+    <div className={`fixed inset-0 z-50 flex items-center justify-center px-4 py-6 ${containerClassName}`.trim()}>
       <div
         className="absolute inset-0 bg-black/50"
         role="presentation"
         onClick={() => onClose?.()}
       />
       <div
-        className="relative w-full max-w-lg rounded-2xl border border-gray-200 bg-white shadow-2xl dark:border-gray-800 dark:bg-gray-900"
+        className={`relative w-full max-w-lg rounded-2xl border border-gray-200 bg-white shadow-2xl dark:border-gray-800 dark:bg-gray-900 ${panelClassName}`.trim()}
         role="dialog"
         aria-modal="true"
         aria-labelledby={titleId}
       >
-        <div className="flex items-center justify-between border-b border-gray-200 px-6 py-4 dark:border-gray-800">
+        <div className={`flex items-center justify-between border-b border-gray-200 px-6 py-4 dark:border-gray-800 ${headerClassName}`.trim()}>
           <h2 id={titleId} className="text-lg font-semibold text-gray-900 dark:text-gray-100">
             {title}
           </h2>
@@ -42,7 +52,7 @@ export default function Modal({ open, onClose, title, children, footer }) {
             X
           </button>
         </div>
-        <div className="px-6 py-4">
+        <div className={`px-6 py-4 ${bodyClassName}`.trim()}>
           {children}
         </div>
         {footer && (

@@ -34,6 +34,12 @@ import {
   getWatchProviderRegions,
   getWatchProviders,
 } from '../lib/tmdbClient';
+import {
+  formatNotesPreview,
+  normalizeNotes,
+  normalizeTags,
+  tagsEqual,
+} from '../utils/annotations';
 
 function SortableItem({ id, disabled, className, children }) {
   const {
@@ -129,6 +135,10 @@ const SORT_OPTIONS = [
 const PROVIDER_CACHE_KEY = 'watch_providers_cache_v1';
 const PROVIDER_CACHE_TTL = 1000 * 60 * 60 * 24;
 const MAX_METADATA_FETCH = 25;
+const TAG_PREVIEW_COUNT = 2;
+const TAG_LIMIT = 8;
+const TAG_MAX_LENGTH = 20;
+const NOTES_MAX_LENGTH = 500;
 
 const providerCacheState = {
   loaded: false,
@@ -147,6 +157,10 @@ const normalizeNumber = (value) => {
   const numeric = Number(value);
   return Number.isFinite(numeric) ? numeric : undefined;
 };
+
+const TAG_SPLIT_REGEX = /[,\n]+/;
+
+const normalizeTagValue = (value) => value.trim().replace(/\s+/g, ' ');
 
 const getItemGenreIds = (item) => {
   const normalizeIds = (ids) => ids
@@ -287,6 +301,16 @@ export default function Watchlist() {
   const [moveTargetId, setMoveTargetId] = useState('');
   const [activeId, setActiveId] = useState(null);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [isAnnotationModalOpen, setIsAnnotationModalOpen] = useState(false);
+  const [annotationTarget, setAnnotationTarget] = useState(null);
+  const [draftNotes, setDraftNotes] = useState('');
+  const [draftTags, setDraftTags] = useState([]);
+  const [tagInput, setTagInput] = useState('');
+  const [tagInputError, setTagInputError] = useState('');
+  const [annotationError, setAnnotationError] = useState('');
+  const [isSavingAnnotations, setIsSavingAnnotations] = useState(false);
+  const annotationInitialRef = useRef({ notes: '', tags: [] });
+  const tagInputRef = useRef(null);
   const metadataEnrichedRef = useRef(new Set());
   const sortButtonRef = useRef(null);
   const sortMenuRef = useRef(null);
@@ -515,6 +539,16 @@ export default function Watchlist() {
     () => currentItems.filter((item) => selectedIds.has(item.id)),
     [currentItems, selectedIds]
   );
+  const tagLimitReached = draftTags.length >= TAG_LIMIT;
+  const notesRemaining = Math.max(0, NOTES_MAX_LENGTH - draftNotes.length);
+  const hasTagInputError = Boolean(tagInputError);
+  const hasAnnotationChanges = useMemo(() => {
+    if (!annotationTarget) return false;
+    const initialNotes = normalizeNotes(annotationInitialRef.current.notes);
+    const notesChanged = normalizeNotes(draftNotes) !== initialNotes;
+    const tagsChanged = !tagsEqual(draftTags, annotationInitialRef.current.tags);
+    return notesChanged || tagsChanged;
+  }, [annotationTarget, draftNotes, draftTags]);
   const captureReorderSnapshot = () => {
     if (!activeList) return;
     reorderSnapshotRef.current = {
@@ -704,6 +738,14 @@ export default function Watchlist() {
     setSelectionMode(false);
     setDeleteMode(false);
     setIsDeleteModalOpen(false);
+    setIsAnnotationModalOpen(false);
+    setAnnotationTarget(null);
+    setDraftNotes('');
+    setDraftTags([]);
+    setTagInput('');
+    setTagInputError('');
+    setAnnotationError('');
+    setIsSavingAnnotations(false);
     setMoveTargetId('');
     setActiveId(null);
     metadataEnrichedRef.current = new Set();
@@ -775,6 +817,11 @@ export default function Watchlist() {
     setProviderFilters([]);
   }, [providerRegion]);
 
+  useEffect(() => {
+    if (!isAnnotationModalOpen) return;
+    tagInputRef.current?.focus();
+  }, [isAnnotationModalOpen]);
+
   const hasFilters = Boolean(
     filterQuery.trim()
     || yearFilter.trim()
@@ -787,6 +834,7 @@ export default function Watchlist() {
     && sortBy === 'manual'
     && !hasFilters;
   const canDrag = canReorder && !isSelecting;
+  const canEditAnnotations = !canDrag && !isSelecting;
   const hasMissingRemoteIds = currentItems.some((item) => !item.list_item_id);
   const reorderDisabled = sortBy !== 'manual' || hasFilters || (source === 'remote' && hasMissingRemoteIds);
 
@@ -809,6 +857,140 @@ export default function Watchlist() {
 
   const clearSelection = () => {
     setSelectedIds(new Set());
+  };
+
+  const resetAnnotationDraft = () => {
+    setIsAnnotationModalOpen(false);
+    setAnnotationTarget(null);
+    setDraftNotes('');
+    setDraftTags([]);
+    setTagInput('');
+    setTagInputError('');
+    setAnnotationError('');
+    setIsSavingAnnotations(false);
+  };
+
+  const openAnnotationEditor = (item) => {
+    if (!activeList) return;
+    const notesValue = normalizeNotes(item.notes);
+    const tagsValue = normalizeTags(item.tags);
+    annotationInitialRef.current = {
+      notes: notesValue,
+      tags: tagsValue,
+    };
+    setDraftNotes(notesValue);
+    setDraftTags(tagsValue);
+    setTagInput('');
+    setTagInputError('');
+    setAnnotationError('');
+    setAnnotationTarget({
+      listId: activeList.id,
+      itemId: item.id,
+      mediaType,
+      title: item.title || item.name || 'Item',
+    });
+    setIsAnnotationModalOpen(true);
+  };
+
+  const closeAnnotationEditor = () => {
+    if (hasAnnotationChanges) {
+      const confirmClose = window.confirm('Discard unsaved notes and tags?');
+      if (!confirmClose) return;
+    }
+    resetAnnotationDraft();
+  };
+
+  const buildTagsFromInput = (currentTags, value) => {
+    const tokens = value
+      .split(TAG_SPLIT_REGEX)
+      .map((token) => normalizeTagValue(token))
+      .filter(Boolean);
+
+    if (tokens.length === 0) {
+      return { nextTags: currentTags, errorMessage: '' };
+    }
+
+    let nextTags = [...currentTags];
+    let errorMessage = '';
+
+    tokens.forEach((token) => {
+      if (nextTags.length >= TAG_LIMIT) {
+        errorMessage = `Up to ${TAG_LIMIT} tags allowed.`;
+        return;
+      }
+      if (token.length > TAG_MAX_LENGTH) {
+        errorMessage = `Tags must be ${TAG_MAX_LENGTH} characters or fewer.`;
+        return;
+      }
+      const key = token.toLowerCase();
+      if (nextTags.some((tag) => tag.toLowerCase() === key)) return;
+      nextTags.push(token);
+    });
+
+    return { nextTags, errorMessage };
+  };
+
+  const commitTagInput = (value) => {
+    const { nextTags, errorMessage } = buildTagsFromInput(draftTags, value);
+    if (!tagsEqual(nextTags, draftTags)) {
+      setDraftTags(nextTags);
+    }
+    setTagInputError(errorMessage);
+  };
+
+  const handleTagInputKeyDown = (event) => {
+    if (event.key === 'Enter' || event.key === ',') {
+      event.preventDefault();
+      commitTagInput(tagInput);
+      setTagInput('');
+      return;
+    }
+    if (event.key === 'Backspace' && !tagInput && draftTags.length > 0) {
+      event.preventDefault();
+      setDraftTags(draftTags.slice(0, -1));
+      setTagInputError('');
+    }
+  };
+
+  const removeTagAtIndex = (index) => {
+    setDraftTags(draftTags.filter((_, idx) => idx !== index));
+    setTagInputError('');
+  };
+
+  const handleSaveAnnotations = async () => {
+    if (!annotationTarget) return;
+    let nextTags = draftTags;
+    if (tagInput.trim()) {
+      const { nextTags: updatedTags, errorMessage } = buildTagsFromInput(draftTags, tagInput);
+      nextTags = updatedTags;
+      setDraftTags(updatedTags);
+      setTagInput('');
+      setTagInputError(errorMessage);
+      if (errorMessage) return;
+    }
+    setIsSavingAnnotations(true);
+    setAnnotationError('');
+    const notesValue = normalizeNotes(draftNotes);
+    const tagsValue = normalizeTags(nextTags);
+    try {
+      await updateItemDetails(annotationTarget.listId, annotationTarget.itemId, annotationTarget.mediaType, {
+        notes: notesValue,
+        tags: tagsValue,
+      });
+      resetAnnotationDraft();
+    } catch (error) {
+      setAnnotationError(error?.message || 'Unable to save notes and tags.');
+    } finally {
+      setIsSavingAnnotations(false);
+    }
+  };
+
+  const handleAnnotationKeyDown = (event) => {
+    if ((event.metaKey || event.ctrlKey) && event.key === 'Enter') {
+      event.preventDefault();
+      if (isSavingAnnotations || hasTagInputError || !hasAnnotationChanges) return;
+      handleSaveAnnotations();
+    }
   };
 
   const floatingMode = deleteMode ? 'delete' : isReorderMode ? 'reorder' : '';
@@ -898,6 +1080,50 @@ export default function Watchlist() {
     if (activeId === null) return null;
     return currentItems.find((item) => item.id === activeId) || null;
   }, [activeId, currentItems]);
+
+  const renderAnnotationSummary = (item) => {
+    const tags = normalizeTags(item.tags);
+    const notesPreview = formatNotesPreview(item.notes);
+    if (tags.length === 0 && !notesPreview) return null;
+    const visibleTags = tags.slice(0, TAG_PREVIEW_COUNT);
+    const extraCount = tags.length - visibleTags.length;
+    const summaryClassName = `w-full rounded-lg border border-gray-200/80 dark:border-gray-800/80 bg-white/70 dark:bg-gray-900/60 px-3 py-2 text-left text-xs text-gray-600 dark:text-gray-300 transition ${
+      canEditAnnotations ? 'hover:border-gray-300 hover:bg-white dark:hover:border-gray-700' : 'opacity-60 cursor-default pointer-events-none'
+    }`;
+
+    return (
+      <button
+        type="button"
+        className={summaryClassName}
+        onClick={() => openAnnotationEditor(item)}
+        disabled={!canEditAnnotations}
+        aria-label={`Edit notes and tags for ${item.title || item.name || 'item'}`}
+      >
+        {visibleTags.length > 0 && (
+          <div className="flex flex-wrap items-center gap-1">
+            {visibleTags.map((tag) => (
+              <span
+                key={tag}
+                className="inline-flex items-center rounded-full bg-gray-100 px-2 py-0.5 text-[11px] font-semibold text-gray-700 dark:bg-gray-800 dark:text-gray-200"
+              >
+                {tag}
+              </span>
+            ))}
+            {extraCount > 0 && (
+              <span className="inline-flex items-center rounded-full border border-gray-200 px-2 py-0.5 text-[11px] font-semibold text-gray-500 dark:border-gray-700 dark:text-gray-300">
+                +{extraCount}
+              </span>
+            )}
+          </div>
+        )}
+        {notesPreview && (
+          <p className="mt-1 line-clamp-1 text-xs text-gray-500 dark:text-gray-400">
+            {notesPreview}
+          </p>
+        )}
+      </button>
+    );
+  };
 
   const sortableIds = useMemo(
     () => visibleWatchlist.map((item) => item.id),
@@ -1436,10 +1662,29 @@ export default function Watchlist() {
                           aria-label={`${selectedIds.has(item.id) ? 'Deselect' : 'Select'} ${item.title || 'item'}`}
                         />
                       )}
+                      {!isSelecting && (
+                        <button
+                          type="button"
+                          className={`absolute right-2 top-2 z-10 inline-flex h-8 w-8 items-center justify-center rounded-full border border-white/80 bg-white/90 text-gray-700 shadow-sm transition hover:bg-white dark:border-gray-700 dark:bg-gray-900/80 dark:text-gray-200 ${canEditAnnotations ? '' : 'cursor-not-allowed opacity-50'}`}
+                          onClick={(event) => {
+                            event.preventDefault();
+                            event.stopPropagation();
+                            openAnnotationEditor(item);
+                          }}
+                          aria-label={`Edit notes and tags for ${item.title || 'item'}`}
+                          title="Notes & tags"
+                          disabled={!canEditAnnotations}
+                        >
+                          <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 20h9M16.5 3.5a2.25 2.25 0 013.182 3.182L7.5 19.313 3 21l1.687-4.5 11.813-13.013z" />
+                          </svg>
+                        </button>
+                      )}
                       <div className={canDrag ? 'pointer-events-none' : ''}>
                         <MovieCard movie={item} />
                       </div>
                     </div>
+                    {renderAnnotationSummary(item)}
                   </SortableItem>
                 ) : (
                   <SortableItem
@@ -1465,10 +1710,29 @@ export default function Watchlist() {
                           aria-label={`${selectedIds.has(item.id) ? 'Deselect' : 'Select'} ${item.name || 'item'}`}
                         />
                       )}
+                      {!isSelecting && (
+                        <button
+                          type="button"
+                          className={`absolute right-2 top-2 z-10 inline-flex h-8 w-8 items-center justify-center rounded-full border border-white/80 bg-white/90 text-gray-700 shadow-sm transition hover:bg-white dark:border-gray-700 dark:bg-gray-900/80 dark:text-gray-200 ${canEditAnnotations ? '' : 'cursor-not-allowed opacity-50'}`}
+                          onClick={(event) => {
+                            event.preventDefault();
+                            event.stopPropagation();
+                            openAnnotationEditor(item);
+                          }}
+                          aria-label={`Edit notes and tags for ${item.name || 'item'}`}
+                          title="Notes & tags"
+                          disabled={!canEditAnnotations}
+                        >
+                          <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 20h9M16.5 3.5a2.25 2.25 0 013.182 3.182L7.5 19.313 3 21l1.687-4.5 11.813-13.013z" />
+                          </svg>
+                        </button>
+                      )}
                       <div className={canDrag ? 'pointer-events-none' : ''}>
                         <TVShowCard tvShow={item} />
                       </div>
                     </div>
+                    {renderAnnotationSummary(item)}
                   </SortableItem>
                 )
               )}
@@ -1485,6 +1749,137 @@ export default function Watchlist() {
           </DragOverlay>
         </DndContext>
       )}
+
+      <Modal
+        open={isAnnotationModalOpen}
+        onClose={closeAnnotationEditor}
+        title={`Notes & tags for ${annotationTarget?.title || 'item'}`}
+        containerClassName="items-end sm:items-center"
+        panelClassName="max-h-[90vh] overflow-hidden rounded-b-none sm:rounded-b-2xl"
+        bodyClassName="max-h-[60vh] overflow-y-auto"
+        footer={(
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div className="text-xs text-gray-500 dark:text-gray-400">
+              {source === 'local'
+                ? 'Saved locally. Sign in to sync across devices.'
+                : 'Tip: Cmd/Ctrl + Enter to save.'}
+            </div>
+            <div className="flex items-center justify-end gap-2">
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={closeAnnotationEditor}
+                disabled={isSavingAnnotations}
+              >
+                Cancel
+              </Button>
+              <Button
+                type="button"
+                variant="primary"
+                size="sm"
+                onClick={handleSaveAnnotations}
+                disabled={isSavingAnnotations || hasTagInputError || !hasAnnotationChanges}
+              >
+                {isSavingAnnotations ? 'Saving...' : 'Save'}
+              </Button>
+            </div>
+          </div>
+        )}
+      >
+        <div className="space-y-6" onKeyDown={handleAnnotationKeyDown}>
+          <div>
+            <div className="flex items-center justify-between">
+              <label htmlFor="annotation-tags" className="text-sm font-semibold text-gray-700 dark:text-gray-200">
+                Tags
+              </label>
+              <span className="text-xs text-gray-500 dark:text-gray-400">
+                {draftTags.length}/{TAG_LIMIT}
+              </span>
+            </div>
+            <div className="mt-2 flex flex-wrap items-center gap-2">
+              {draftTags.length === 0 ? (
+                <span className="text-xs text-gray-500 dark:text-gray-400">No tags yet.</span>
+              ) : (
+                draftTags.map((tag, index) => (
+                  <span
+                    key={`${tag}-${index}`}
+                    className="inline-flex items-center gap-1 rounded-full border border-gray-200 bg-white px-2 py-1 text-xs font-semibold text-gray-700 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-200"
+                  >
+                    {tag}
+                    <button
+                      type="button"
+                      className="text-gray-400 hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-300"
+                      onClick={() => removeTagAtIndex(index)}
+                      aria-label={`Remove tag ${tag}`}
+                    >
+                      x
+                    </button>
+                  </span>
+                ))
+              )}
+            </div>
+            <input
+              ref={tagInputRef}
+              id="annotation-tags"
+              type="text"
+              value={tagInput}
+              onChange={(event) => {
+                setTagInput(event.target.value);
+                if (tagInputError) {
+                  setTagInputError('');
+                }
+              }}
+              onKeyDown={handleTagInputKeyDown}
+              onBlur={() => {
+                if (!tagInput.trim()) return;
+                commitTagInput(tagInput);
+                setTagInput('');
+              }}
+              placeholder={tagLimitReached ? 'Tag limit reached' : 'Add tags (press Enter or comma)'}
+              disabled={tagLimitReached}
+              className="mt-3 w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-primary-500 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100"
+            />
+            <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">
+              Max {TAG_MAX_LENGTH} characters per tag. Use commas to add multiple.
+            </p>
+            {tagInputError && (
+              <p className="mt-2 text-xs text-red-500 dark:text-red-400">
+                {tagInputError}
+              </p>
+            )}
+          </div>
+
+          <div>
+            <div className="flex items-center justify-between">
+              <label htmlFor="annotation-notes" className="text-sm font-semibold text-gray-700 dark:text-gray-200">
+                Notes
+              </label>
+              <span className="text-xs text-gray-500 dark:text-gray-400">
+                {draftNotes.length}/{NOTES_MAX_LENGTH}
+              </span>
+            </div>
+            <textarea
+              id="annotation-notes"
+              value={draftNotes}
+              onChange={(event) => setDraftNotes(event.target.value)}
+              placeholder="Add a quick note about why you saved this."
+              maxLength={NOTES_MAX_LENGTH}
+              rows={5}
+              className="mt-2 w-full resize-none rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-primary-500 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100"
+            />
+            <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">
+              {notesRemaining} characters remaining.
+            </p>
+          </div>
+
+          {annotationError && (
+            <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-600 dark:border-red-900/60 dark:bg-red-900/20 dark:text-red-300">
+              {annotationError}
+            </div>
+          )}
+        </div>
+      </Modal>
 
       <Modal
         open={isDeleteModalOpen}
