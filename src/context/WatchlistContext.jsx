@@ -13,7 +13,7 @@ const readLocalWatchlist = () => {
   try {
     const stored = localStorage.getItem(WATCHLIST_STORAGE_KEY);
     return stored ? JSON.parse(stored) : emptyList;
-  } catch (error) {
+  } catch {
     return emptyList;
   }
 };

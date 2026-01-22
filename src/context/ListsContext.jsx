@@ -123,7 +123,7 @@ const stripRetiredListsFromState = (state) => {
 const safeParse = (value, fallback) => {
   try {
     return value ? JSON.parse(value) : fallback;
-  } catch (error) {
+  } catch {
     return fallback;
   }
 };

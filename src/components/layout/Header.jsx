@@ -15,7 +15,9 @@ export default function Header() {
   const displayName = profile?.display_name?.trim() || user?.email || '';
   const avatarUrl = profile?.avatar_url || '';
   const avatarUrlWithCache = avatarUrl
-    ? `${avatarUrl}${avatarUrl.includes('?') ? '&' : '?'}t=${profile?.updated_at || Date.now()}`
+    ? profile?.updated_at
+      ? `${avatarUrl}${avatarUrl.includes('?') ? '&' : '?'}t=${profile.updated_at}`
+      : avatarUrl
     : '';
 
   const handleSearch = (query) => {
@@ -54,7 +56,7 @@ export default function Header() {
     try {
       await signOut();
       clearSystemListItems('watchlist');
-    } catch (error) {
+    } catch {
       // Keep logout resilient even if Supabase has transient issues.
     }
   };

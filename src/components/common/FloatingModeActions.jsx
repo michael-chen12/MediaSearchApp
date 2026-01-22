@@ -6,15 +6,19 @@ export default function FloatingModeActions({
   onCancel,
   confirmDisabled = false,
 }) {
-  if (!mode) return null;
-
   const [isVisible, setIsVisible] = useState(false);
 
   useEffect(() => {
+    if (!mode) {
+      setIsVisible(false);
+      return undefined;
+    }
     setIsVisible(false);
     const raf = requestAnimationFrame(() => setIsVisible(true));
     return () => cancelAnimationFrame(raf);
   }, [mode]);
+
+  if (!mode) return null;
 
   const modeLabel = mode === 'delete'
     ? 'delete mode'

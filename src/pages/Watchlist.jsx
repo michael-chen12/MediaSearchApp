@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useSearchParams, Link } from 'react-router-dom';
 import { useQuery, useQueries } from '@tanstack/react-query';
 import {
@@ -176,7 +176,7 @@ const loadProviderCache = () => {
   try {
     const stored = window.localStorage.getItem(PROVIDER_CACHE_KEY);
     providerCacheState.data = stored ? JSON.parse(stored) : {};
-  } catch (error) {
+  } catch {
     providerCacheState.data = {};
   }
   providerCacheState.loaded = true;
@@ -187,7 +187,7 @@ const persistProviderCache = () => {
   if (typeof window === 'undefined') return;
   try {
     window.localStorage.setItem(PROVIDER_CACHE_KEY, JSON.stringify(providerCacheState.data));
-  } catch (error) {
+  } catch {
     // Ignore cache write failures (storage quota, privacy mode).
   }
 };
@@ -620,10 +620,10 @@ export default function Watchlist() {
     });
     setTagFilterInput('');
   };
-  const removeTagFilter = (tag) => {
+  const removeTagFilter = useCallback((tag) => {
     const key = tag.toLowerCase();
     setTagFilters((prev) => prev.filter((value) => value.toLowerCase() !== key));
-  };
+  }, []);
   const commitTagFilterInput = (value) => {
     const tokens = value
       .split(TAG_SPLIT_REGEX)
@@ -813,7 +813,7 @@ export default function Watchlist() {
       if (newList?.id) {
         handleListChange(newList.id);
       }
-    } catch (error) {
+    } catch {
       // Surface errors as a warning banner, similar to sync failures.
     }
   };
@@ -966,7 +966,7 @@ export default function Watchlist() {
         notesTagsModalItem.mediaType,
         { notes, tags }
       );
-    } catch (error) {
+    } catch {
       const message = 'Failed to save notes. Changes kept locally.';
       setToastMessage(message);
       throw new Error(message);
