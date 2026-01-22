@@ -1,17 +1,24 @@
 import { useQuery, useQueries } from '@tanstack/react-query';
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { getTVShowDetails, getTVShowCredits, getSimilarTVShows, getTVSeasonDetails, getImageUrl } from '../lib/tmdbClient';
 import { MovieDetailSkeleton } from '../components/common/LoadingSkeleton';
 import ErrorMessage from '../components/common/ErrorMessage';
 import TVShowCard from '../components/common/TVShowCard';
-import { formatDate, formatRating, formatVoteCount } from '../utils/format';
+import { formatDate, formatEpisode, formatRating, formatVoteCount } from '../utils/format';
 import { useLists } from '../context/ListsContext';
+import { useWatchProgress } from '../context/WatchProgressContext';
+import TabNavigation from '../components/common/navigation/TabNavigation';
+import TVShowProgress from '../components/common/TVShowProgress';
+import ProgressBar from '../components/common/ProgressBar';
 
 export default function TVShowDetail() {
   const { id } = useParams();
   const { isInSystemList, toggleSystemList } = useLists();
+  const { getProgress, progressByMediaId } = useWatchProgress();
+  const [activeTab, setActiveTab] = useState('seasons');
   const [expandedSeasons, setExpandedSeasons] = useState([]);
+  const [focusEpisode, setFocusEpisode] = useState(null);
 
   const { data: tvShow, isLoading, error, refetch } = useQuery({
     queryKey: ['tvShowDetails', id],
@@ -30,17 +37,27 @@ export default function TVShowDetail() {
     enabled: !!tvShow,
   });
 
-  const normalizedExpandedSeasons = [...expandedSeasons].sort((a, b) => a - b);
+  const seasons = useMemo(() => (
+    tvShow?.seasons?.filter((season) => season.season_number > 0) || []
+  ), [tvShow]);
+
+  const seasonNumbers = useMemo(() => (
+    [...new Set(seasons
+      .map((season) => season.season_number)
+      .filter(Number.isFinite))]
+      .sort((a, b) => a - b)
+  ), [seasons]);
 
   const seasonDetailsQueries = useQueries({
-    queries: normalizedExpandedSeasons.map((seasonNumber) => ({
+    queries: seasonNumbers.map((seasonNumber) => ({
       queryKey: ['tvSeasonDetails', id, seasonNumber],
       queryFn: () => getTVSeasonDetails(id, seasonNumber),
-      enabled: !!tvShow,
+      enabled: Boolean(tvShow) && expandedSeasons.includes(seasonNumber),
+      staleTime: 1000 * 60 * 60 * 24,
     })),
   });
 
-  const seasonDetailsByNumber = normalizedExpandedSeasons.reduce((acc, seasonNumber, index) => {
+  const seasonDetailsByNumber = seasonNumbers.reduce((acc, seasonNumber, index) => {
     acc[seasonNumber] = seasonDetailsQueries[index];
     return acc;
   }, {});
@@ -102,8 +119,56 @@ export default function TVShowDetail() {
   });
   const displayedCrew = uniqueCrew.slice(0, 12);
   const similarTVShows = similarTVShowsData?.results?.slice(0, 6) || [];
-  const seasons = tvShow.seasons?.filter(season => season.season_number > 0) || [];
   const posterUrl = getImageUrl(tvShow.poster_path, 'poster', 'large');
+  const progress = getProgress(id);
+  const totalEpisodes = Number.isFinite(tvShow.number_of_episodes)
+    ? tvShow.number_of_episodes
+    : progress.totalEpisodes;
+  const watchedEpisodes = Number.isFinite(progress.watchedEpisodes)
+    ? progress.watchedEpisodes
+    : 0;
+  const overallTotalEpisodes = totalEpisodes;
+  const overallWatchedEpisodes = overallTotalEpisodes > 0
+    ? Math.min(watchedEpisodes, overallTotalEpisodes)
+    : watchedEpisodes;
+  const overallProgressPercentage = overallTotalEpisodes > 0
+    ? Math.round((overallWatchedEpisodes / overallTotalEpisodes) * 100)
+    : 0;
+  const overallProgressLabel = overallTotalEpisodes > 0
+    ? `${overallWatchedEpisodes}/${overallTotalEpisodes} episodes (${overallProgressPercentage}%)`
+    : 'No progress yet';
+  const mediaProgress = progressByMediaId?.[String(id)] || {};
+  const nextUnwatchedEpisode = seasons.reduce((nextEpisode, season) => {
+    if (nextEpisode) return nextEpisode;
+    const seasonNumber = season.season_number;
+    const episodeCount = Number(season.episode_count) || 0;
+    if (!seasonNumber || episodeCount <= 0) return nextEpisode;
+    for (let episodeNumber = 1; episodeNumber <= episodeCount; episodeNumber += 1) {
+      const entry = mediaProgress?.[String(seasonNumber)]?.[String(episodeNumber)];
+      if (!entry?.watched) {
+        return { season: seasonNumber, episode: episodeNumber };
+      }
+    }
+    return nextEpisode;
+  }, null);
+  const fallbackSeasonNumber = seasonNumbers[0];
+  const shouldFallbackToFirst = !nextUnwatchedEpisode
+    && progress.totalEpisodes === 0
+    && Number.isFinite(fallbackSeasonNumber);
+  const nextEpisodeTarget = nextUnwatchedEpisode
+    || (shouldFallbackToFirst ? { season: fallbackSeasonNumber, episode: 1 } : null);
+  const continueWatchingLabel = nextEpisodeTarget
+    ? `Continue ${formatEpisode(nextEpisodeTarget.season, nextEpisodeTarget.episode)}`
+    : 'All caught up';
+
+  const handleContinueWatching = () => {
+    if (!nextEpisodeTarget) return;
+    setActiveTab('seasons');
+    setExpandedSeasons((prev) => (
+      prev.includes(nextEpisodeTarget.season) ? prev : [...prev, nextEpisodeTarget.season]
+    ));
+    setFocusEpisode(nextEpisodeTarget);
+  };
 
   return (
     <div>
@@ -277,175 +342,149 @@ export default function TVShowDetail() {
         </div>
       </section>
 
-      {cast.length > 0 && (
-        <div className="mb-12">
-          <h2 className="text-2xl font-semibold text-gray-900 dark:text-gray-100 mb-6">
-            Cast
-          </h2>
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 xl:grid-cols-8 gap-4">
-            {cast.map((person) => (
-              <div key={person.id} className="text-center">
-                <div className="aspect-[2/3] rounded-lg overflow-hidden bg-gray-200 dark:bg-gray-700 mb-2">
-                  {person.profile_path ? (
-                    <img
-                      src={getImageUrl(person.profile_path, 'profile', 'small')}
-                      alt={person.name}
-                      className="w-full h-full object-cover"
-                      loading="lazy"
+      <section className="mb-12">
+        <TabNavigation
+          tabs={[
+            { id: 'seasons', label: 'Seasons' },
+            { id: 'cast', label: 'Cast' },
+            { id: 'crew', label: 'Key Crew' },
+            { id: 'similar', label: 'Similar' },
+          ]}
+          activeTab={activeTab}
+          onTabChange={setActiveTab}
+        />
+
+        <div className="mt-6">
+          {activeTab === 'seasons' && (
+            <div role="tabpanel" id="seasons-panel" aria-labelledby="seasons-tab">
+              <div className="mb-6 rounded-xl border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-700 dark:bg-gray-900 sm:p-6">
+                <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+                  <div className="flex-1">
+                    <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100 mb-3">
+                      Progress
+                    </h2>
+                    <ProgressBar
+                      current={overallWatchedEpisodes}
+                      total={overallTotalEpisodes}
+                      label={overallProgressLabel}
+                      size="md"
                     />
-                  ) : (
-                    <div className="w-full h-full flex items-center justify-center text-gray-400 dark:text-gray-600">
-                      <svg className="w-12 h-12" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-                        <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z" />
-                      </svg>
-                    </div>
-                  )}
-                </div>
-                <p className="font-medium text-sm text-gray-900 dark:text-gray-100 line-clamp-1">
-                  {person.name}
-                </p>
-                <p className="text-xs text-gray-600 dark:text-gray-400 line-clamp-1">
-                  {person.character}
-                </p>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {displayedCrew.length > 0 && (
-        <div className="mb-12">
-          <h2 className="text-2xl font-semibold text-gray-900 dark:text-gray-100 mb-6">
-            Crew
-          </h2>
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
-            {displayedCrew.map((person) => (
-              <div
-                key={`${person.id}-${person.job}`}
-                className="rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 p-3"
-              >
-                <p className="font-medium text-sm text-gray-900 dark:text-gray-100 line-clamp-1">
-                  {person.name}
-                </p>
-                <p className="text-xs text-gray-600 dark:text-gray-400 line-clamp-1">
-                  {person.job}
-                </p>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {seasons.length > 0 && (
-        <div className="mb-12">
-          <h2 className="text-2xl font-semibold text-gray-900 dark:text-gray-100 mb-6">
-            Seasons
-          </h2>
-          <div className="space-y-4">
-            {seasons.map((season) => (
-              <div
-                key={season.id}
-                className="flex gap-4 p-4 rounded-lg bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700"
-              >
-                <div className="flex-shrink-0 w-24">
-                  <div className="aspect-[2/3] rounded overflow-hidden bg-gray-200 dark:bg-gray-700">
-                    {season.poster_path ? (
-                      <img
-                        src={getImageUrl(season.poster_path, 'poster', 'small')}
-                        alt={`${season.name} poster`}
-                        className="w-full h-full object-cover"
-                        loading="lazy"
-                      />
-                    ) : (
-                      <div className="w-full h-full flex items-center justify-center text-gray-400 dark:text-gray-600">
-                        <svg className="w-8 h-8" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-                          <path d="M7 4v16M17 4v16M3 8h4m10 0h4M3 12h18M3 16h4m10 0h4M4 20h16a1 1 0 001-1V5a1 1 0 00-1-1H4a1 1 0 00-1 1v14a1 1 0 001 1z" />
-                        </svg>
-                      </div>
-                    )}
                   </div>
-                </div>
-                <div className="flex-1">
-                  <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-1">
-                    {season.name}
-                  </h3>
-                  {season.air_date && (
-                    <p className="text-sm text-gray-600 dark:text-gray-400 mb-2">
-                      Aired: {formatDate(season.air_date)}
-                    </p>
-                  )}
-                  <p className="text-sm text-gray-600 dark:text-gray-400 mb-2">
-                    {season.episode_count} {season.episode_count === 1 ? 'Episode' : 'Episodes'}
-                  </p>
-                  {season.overview && (
-                    <p className="text-sm text-gray-700 dark:text-gray-300 line-clamp-2">
-                      {season.overview}
-                    </p>
-                  )}
                   <button
                     type="button"
-                    onClick={() => toggleSeason(season.season_number)}
-                    className="mt-3 text-sm font-medium text-primary-600 dark:text-primary-400 hover:underline"
-                    aria-expanded={expandedSeasons.includes(season.season_number)}
+                    onClick={handleContinueWatching}
+                    disabled={!nextEpisodeTarget}
+                    className="inline-flex items-center justify-center rounded-full bg-primary-600 px-5 py-2 text-sm font-semibold text-white transition hover:bg-primary-700 disabled:cursor-not-allowed disabled:opacity-60 dark:bg-primary-500 dark:hover:bg-primary-600"
                   >
-                    {expandedSeasons.includes(season.season_number) ? 'Hide Episodes' : 'Show Episodes'}
+                    {continueWatchingLabel}
                   </button>
-                  {expandedSeasons.includes(season.season_number) && (
-                    <div className="mt-3 border-t border-gray-200 dark:border-gray-700 pt-3">
-                      {seasonDetailsByNumber[season.season_number]?.isLoading && (
-                        <p className="text-sm text-gray-600 dark:text-gray-400">Loading episodes...</p>
-                      )}
-                      {seasonDetailsByNumber[season.season_number]?.error && (
-                        <p className="text-sm text-red-600 dark:text-red-400">Failed to load episodes.</p>
-                      )}
-                      {seasonDetailsByNumber[season.season_number]?.data && (
-                        <>
-                          {seasonDetailsByNumber[season.season_number].data.episodes?.length ? (
-                            <ul className="space-y-2">
-                              {seasonDetailsByNumber[season.season_number].data.episodes.map((episode) => (
-                                <li key={episode.id} className="flex flex-col gap-1">
-                                  <span className="text-sm font-medium text-gray-900 dark:text-gray-100">
-                                    E{episode.episode_number}. {episode.name}
-                                  </span>
-                                  <span className="text-xs text-gray-600 dark:text-gray-400">
-                                    {episode.air_date ? formatDate(episode.air_date) : 'Air date TBD'}
-                                  </span>
-                                  {episode.overview && (
-                                    <p className="text-xs text-gray-600 dark:text-gray-400 line-clamp-2">
-                                      {episode.overview}
-                                    </p>
-                                  )}
-                                </li>
-                              ))}
-                            </ul>
-                          ) : (
-                            <p className="text-sm text-gray-600 dark:text-gray-400">
-                              No episode details available.
-                            </p>
-                          )}
-                        </>
-                      )}
-                    </div>
-                  )}
                 </div>
+                {nextEpisodeTarget && (
+                  <p className="mt-3 text-sm text-gray-600 dark:text-gray-400">
+                    Next up: {formatEpisode(nextEpisodeTarget.season, nextEpisodeTarget.episode)}
+                  </p>
+                )}
               </div>
-            ))}
-          </div>
-        </div>
-      )}
 
-      {similarTVShows.length > 0 && (
-        <div>
-          <h2 className="text-2xl font-semibold text-gray-900 dark:text-gray-100 mb-6">
-            Similar TV Shows
-          </h2>
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-6">
-            {similarTVShows.map((show) => (
-              <TVShowCard key={show.id} tvShow={show} />
-            ))}
-          </div>
+              {seasons.length > 0 ? (
+                <TVShowProgress
+                  tvShowId={Number(id)}
+                  seasons={seasons}
+                  seasonDetailsByNumber={seasonDetailsByNumber}
+                  expandedSeasons={expandedSeasons}
+                  onToggleSeason={toggleSeason}
+                  focusEpisode={focusEpisode}
+                />
+              ) : (
+                <p className="text-sm text-gray-600 dark:text-gray-400">
+                  No season details available.
+                </p>
+              )}
+            </div>
+          )}
+
+          {activeTab === 'cast' && (
+            <div role="tabpanel" id="cast-panel" aria-labelledby="cast-tab">
+              {cast.length > 0 ? (
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 xl:grid-cols-8 gap-4">
+                  {cast.map((person) => (
+                    <div key={person.id} className="text-center">
+                      <div className="aspect-[2/3] rounded-lg overflow-hidden bg-gray-200 dark:bg-gray-700 mb-2">
+                        {person.profile_path ? (
+                          <img
+                            src={getImageUrl(person.profile_path, 'profile', 'small')}
+                            alt={person.name}
+                            className="w-full h-full object-cover"
+                            loading="lazy"
+                          />
+                        ) : (
+                          <div className="w-full h-full flex items-center justify-center text-gray-400 dark:text-gray-600">
+                            <svg className="w-12 h-12" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                              <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z" />
+                            </svg>
+                          </div>
+                        )}
+                      </div>
+                      <p className="font-medium text-sm text-gray-900 dark:text-gray-100 line-clamp-1">
+                        {person.name}
+                      </p>
+                      <p className="text-xs text-gray-600 dark:text-gray-400 line-clamp-1">
+                        {person.character}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-sm text-gray-600 dark:text-gray-400">
+                  No cast details available.
+                </p>
+              )}
+            </div>
+          )}
+
+          {activeTab === 'crew' && (
+            <div role="tabpanel" id="crew-panel" aria-labelledby="crew-tab">
+              {displayedCrew.length > 0 ? (
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
+                  {displayedCrew.map((person) => (
+                    <div
+                      key={`${person.id}-${person.job}`}
+                      className="rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 p-3"
+                    >
+                      <p className="font-medium text-sm text-gray-900 dark:text-gray-100 line-clamp-1">
+                        {person.name}
+                      </p>
+                      <p className="text-xs text-gray-600 dark:text-gray-400 line-clamp-1">
+                        {person.job}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-sm text-gray-600 dark:text-gray-400">
+                  No crew details available.
+                </p>
+              )}
+            </div>
+          )}
+
+          {activeTab === 'similar' && (
+            <div role="tabpanel" id="similar-panel" aria-labelledby="similar-tab">
+              {similarTVShows.length > 0 ? (
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-6">
+                  {similarTVShows.map((show) => (
+                    <TVShowCard key={show.id} tvShow={show} />
+                  ))}
+                </div>
+              ) : (
+                <p className="text-sm text-gray-600 dark:text-gray-400">
+                  No similar shows to recommend yet.
+                </p>
+              )}
+            </div>
+          )}
         </div>
-      )}
+      </section>
     </div>
   );
 }

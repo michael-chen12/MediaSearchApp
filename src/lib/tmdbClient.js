@@ -245,3 +245,16 @@ export async function getCollectionDetails(collectionId) {
   });
   return http(`${API_BASE}?${params}`);
 }
+
+/**
+ * Get new feature data
+ */
+export async function getNewFeatureData(params) {
+  const response = await fetch(
+    `${BASE_URL}/new-endpoint?api_key=${API_KEY}&${new URLSearchParams(params)}`
+  );
+  if (!response.ok) {
+    throw new Error('Failed to fetch data');
+  }
+  return response.json();
+}

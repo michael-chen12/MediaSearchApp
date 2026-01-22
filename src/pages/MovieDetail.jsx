@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { useParams, Link } from 'react-router-dom';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { getMovieDetails, getMovieCredits, getSimilarMovies, getImageUrl } from '../lib/tmdbClient';
 import { events } from '../lib/analytics';
 import { MovieDetailSkeleton } from '../components/common/LoadingSkeleton';
@@ -8,10 +8,12 @@ import ErrorMessage from '../components/common/ErrorMessage';
 import MovieCard from '../components/common/MovieCard';
 import { formatDate, formatRuntime, formatCurrency, formatRating, formatVoteCount } from '../utils/format';
 import { useLists } from '../context/ListsContext';
+import TabNavigation from '../components/common/navigation/TabNavigation';
 
 export default function MovieDetail() {
   const { id } = useParams();
   const { isInSystemList, toggleSystemList } = useLists();
+  const [activeTab, setActiveTab] = useState('cast');
 
   const { data: movie, isLoading, error, refetch } = useQuery({
     queryKey: ['movieDetails', id],
@@ -294,77 +296,100 @@ export default function MovieDetail() {
         </div>
       )}
 
-      {cast.length > 0 && (
-        <div className="mb-12">
-          <h2 className="text-2xl font-semibold text-gray-900 dark:text-gray-100 mb-6">
-            Cast
-          </h2>
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 xl:grid-cols-8 gap-4">
-            {cast.map((person) => (
-              <div key={person.id} className="text-center">
-                <div className="aspect-[2/3] rounded-lg overflow-hidden bg-gray-200 dark:bg-gray-700 mb-2">
-                  {person.profile_path ? (
-                    <img
-                      src={getImageUrl(person.profile_path, 'profile', 'small')}
-                      alt={person.name}
-                      className="w-full h-full object-cover"
-                      loading="lazy"
-                    />
-                  ) : (
-                    <div className="w-full h-full flex items-center justify-center text-gray-400 dark:text-gray-600">
-                      <svg className="w-12 h-12" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-                        <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z" />
-                      </svg>
+      <section className="mb-12">
+        <TabNavigation
+          tabs={[
+            { id: 'cast', label: 'Cast' },
+            { id: 'crew', label: 'Crew' },
+            { id: 'similar', label: 'Similar' },
+          ]}
+          activeTab={activeTab}
+          onTabChange={setActiveTab}
+        />
+
+        <div className="mt-6">
+          {activeTab === 'cast' && (
+            <div role="tabpanel" id="cast-panel" aria-labelledby="cast-tab">
+              {cast.length > 0 ? (
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 xl:grid-cols-8 gap-4">
+                  {cast.map((person) => (
+                    <div key={person.id} className="text-center">
+                      <div className="aspect-[2/3] rounded-lg overflow-hidden bg-gray-200 dark:bg-gray-700 mb-2">
+                        {person.profile_path ? (
+                          <img
+                            src={getImageUrl(person.profile_path, 'profile', 'small')}
+                            alt={person.name}
+                            className="w-full h-full object-cover"
+                            loading="lazy"
+                          />
+                        ) : (
+                          <div className="w-full h-full flex items-center justify-center text-gray-400 dark:text-gray-600">
+                            <svg className="w-12 h-12" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                              <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z" />
+                            </svg>
+                          </div>
+                        )}
+                      </div>
+                      <p className="font-medium text-sm text-gray-900 dark:text-gray-100 line-clamp-1">
+                        {person.name}
+                      </p>
+                      <p className="text-xs text-gray-600 dark:text-gray-400 line-clamp-1">
+                        {person.character}
+                      </p>
                     </div>
-                  )}
+                  ))}
                 </div>
-                <p className="font-medium text-sm text-gray-900 dark:text-gray-100 line-clamp-1">
-                  {person.name}
+              ) : (
+                <p className="text-sm text-gray-600 dark:text-gray-400">
+                  No cast details available.
                 </p>
-                <p className="text-xs text-gray-600 dark:text-gray-400 line-clamp-1">
-                  {person.character}
-                </p>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
+              )}
+            </div>
+          )}
 
-      {displayedCrew.length > 0 && (
-        <div className="mb-12">
-          <h2 className="text-2xl font-semibold text-gray-900 dark:text-gray-100 mb-6">
-            Crew
-          </h2>
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
-            {displayedCrew.map((person) => (
-              <div
-                key={`${person.id}-${person.job}`}
-                className="rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 p-3"
-              >
-                <p className="font-medium text-sm text-gray-900 dark:text-gray-100 line-clamp-1">
-                  {person.name}
+          {activeTab === 'crew' && (
+            <div role="tabpanel" id="crew-panel" aria-labelledby="crew-tab">
+              {displayedCrew.length > 0 ? (
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
+                  {displayedCrew.map((person) => (
+                    <div
+                      key={`${person.id}-${person.job}`}
+                      className="rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 p-3"
+                    >
+                      <p className="font-medium text-sm text-gray-900 dark:text-gray-100 line-clamp-1">
+                        {person.name}
+                      </p>
+                      <p className="text-xs text-gray-600 dark:text-gray-400 line-clamp-1">
+                        {person.job}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-sm text-gray-600 dark:text-gray-400">
+                  No crew details available.
                 </p>
-                <p className="text-xs text-gray-600 dark:text-gray-400 line-clamp-1">
-                  {person.job}
-                </p>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
+              )}
+            </div>
+          )}
 
-      {similarMovies.length > 0 && (
-        <div>
-          <h2 className="text-2xl font-semibold text-gray-900 dark:text-gray-100 mb-6">
-            Similar Movies
-          </h2>
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-6">
-            {similarMovies.map((movie) => (
-              <MovieCard key={movie.id} movie={movie} />
-            ))}
-          </div>
+          {activeTab === 'similar' && (
+            <div role="tabpanel" id="similar-panel" aria-labelledby="similar-tab">
+              {similarMovies.length > 0 ? (
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-6">
+                  {similarMovies.map((movie) => (
+                    <MovieCard key={movie.id} movie={movie} />
+                  ))}
+                </div>
+              ) : (
+                <p className="text-sm text-gray-600 dark:text-gray-400">
+                  No similar movies to recommend yet.
+                </p>
+              )}
+            </div>
+          )}
         </div>
-      )}
+      </section>
     </div>
   );
 }

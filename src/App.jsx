@@ -8,10 +8,13 @@ import TVShowDetail from './pages/TVShowDetail';
 import PersonDetail from './pages/PersonDetail';
 import CollectionDetail from './pages/CollectionDetail';
 import Watchlist from './pages/Watchlist';
+import Calendar from './pages/Calendar';
 import Login from './pages/Login';
 import Signup from './pages/Signup';
 import Profile from './pages/Profile';
 import ProtectedRoute from './components/auth/ProtectedRoute';
+import NewFeature from './pages/NewFeature';
+import { NewFeatureProvider } from './context/NewFeatureContext';
 
 function NotFound() {
   return (
@@ -53,33 +56,44 @@ export default function App() {
   return (
     <Layout>
       <AnalyticsTracker />
-      <Routes>
-        <Route path="/" element={<Home />} />
-        <Route path="/search" element={<SearchResults />} />
-        <Route path="/movie/:id" element={<MovieDetail />} />
-        <Route path="/tv/:id" element={<TVShowDetail />} />
-        <Route path="/person/:id" element={<PersonDetail />} />
-        <Route path="/collection/:id" element={<CollectionDetail />} />
-        <Route
-          path="/watchlist"
-          element={(
-            <ProtectedRoute>
-              <Watchlist />
-            </ProtectedRoute>
-          )}
-        />
-        <Route
-          path="/profile"
-          element={(
-            <ProtectedRoute>
-              <Profile />
-            </ProtectedRoute>
-          )}
-        />
-        <Route path="/login" element={<Login />} />
-        <Route path="/signup" element={<Signup />} />
-        <Route path="*" element={<NotFound />} />
-      </Routes>
+      <NewFeatureProvider>
+        <Routes>
+          <Route path="/" element={<Home />} />
+          <Route path="/search" element={<SearchResults />} />
+          <Route path="/movie/:id" element={<MovieDetail />} />
+          <Route path="/tv/:id" element={<TVShowDetail />} />
+          <Route path="/person/:id" element={<PersonDetail />} />
+          <Route path="/collection/:id" element={<CollectionDetail />} />
+          <Route
+            path="/watchlist"
+            element={(
+              <ProtectedRoute>
+                <Watchlist />
+              </ProtectedRoute>
+            )}
+          />
+          <Route
+            path="/calendar"
+            element={(
+              <ProtectedRoute>
+                <Calendar />
+              </ProtectedRoute>
+            )}
+          />
+          <Route
+            path="/profile"
+            element={(
+              <ProtectedRoute>
+                <Profile />
+              </ProtectedRoute>
+            )}
+          />
+          <Route path="/login" element={<Login />} />
+          <Route path="/signup" element={<Signup />} />
+          <Route path="/new-feature" element={<NewFeature />} />
+          <Route path="*" element={<NotFound />} />
+        </Routes>
+      </NewFeatureProvider>
     </Layout>
   );
 }

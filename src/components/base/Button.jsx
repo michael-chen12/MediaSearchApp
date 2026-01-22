@@ -27,7 +27,7 @@ export default function Button({
     sm: 'px-3 py-1.5 text-sm',
     md: 'px-4 py-2 text-sm',
     lg: 'px-6 py-3 text-base',
-    tab: 'px-4 py-3 text-sm'
+    tab: 'px-3 sm:px-4 py-2.5 sm:py-3 text-sm snap-start flex-shrink-0'
   };
   
   return (

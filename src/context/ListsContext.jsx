@@ -205,6 +205,18 @@ const mapRemoteItems = (items) => items.reduce((acc, item) => {
 
 const sortItemsByPosition = (items) => [...items].sort((a, b) => (a.position ?? 0) - (b.position ?? 0));
 
+const preserveLocalFields = (remoteItem, localItem) => {
+  if (!localItem) return remoteItem;
+  const merged = { ...remoteItem };
+  const fields = ['number_of_episodes', 'seasons'];
+  fields.forEach((field) => {
+    if (merged[field] === undefined && localItem[field] !== undefined) {
+      merged[field] = localItem[field];
+    }
+  });
+  return merged;
+};
+
 export function ListsProvider({ children }) {
   const { user } = useAuth();
   const queryClient = useQueryClient();
@@ -308,15 +320,21 @@ export function ListsProvider({ children }) {
   useEffect(() => {
     if (itemsQuery.isSuccess) {
       const mapped = mapRemoteItems(itemsQuery.data || []);
-      const nextItems = {};
-      visibleLists.forEach((list) => {
-        const listItems = mapped[list.id] || emptyItems();
-        nextItems[list.id] = {
-          movies: sortItemsByPosition(listItems.movies),
-          tvShows: sortItemsByPosition(listItems.tvShows),
-        };
+      setItemsByListId((prev) => {
+        const nextItems = {};
+        visibleLists.forEach((list) => {
+          const listItems = mapped[list.id] || emptyItems();
+          const prevItems = prev[list.id] || emptyItems();
+          const mergeList = (remoteList, localList) => remoteList.map((item) => (
+            preserveLocalFields(item, localList.find((local) => local.id === item.id))
+          ));
+          nextItems[list.id] = {
+            movies: sortItemsByPosition(mergeList(listItems.movies, prevItems.movies)),
+            tvShows: sortItemsByPosition(mergeList(listItems.tvShows, prevItems.tvShows)),
+          };
+        });
+        return nextItems;
       });
-      setItemsByListId(nextItems);
       setWarning('');
     }
   }, [itemsQuery.data, itemsQuery.isSuccess, visibleLists]);

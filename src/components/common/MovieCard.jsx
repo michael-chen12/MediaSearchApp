@@ -85,7 +85,6 @@ export default function MovieCard({
   const normalizedNotes = normalizeNotes(notes);
   const normalizedTags = normalizeTags(tags);
   const hasPreview = normalizedTags.length > 0 || Boolean(normalizedNotes);
-  const actionsClassName = hasPreview ? 'mt-2' : 'mt-0';
 
   return (
     <div className="group rounded-lg bg-gray-100 dark:bg-gray-800 shadow-md card-anim">
@@ -97,17 +96,17 @@ export default function MovieCard({
         {cardContent}
       </Link>
       <div className="px-4 pb-4">
-        {hasPreview && (
-          <div className="mt-2">
+        <div className="mt-2 h-[4.5rem]">
+          {hasPreview ? (
             <NotesTagsPreview
               notes={normalizedNotes}
               tags={normalizedTags}
               onClick={handleEditClick}
               disabled={!canEdit}
             />
-          </div>
-        )}
-        <div className={`flex items-center justify-end ${actionsClassName}`}>
+          ) : null}
+        </div>
+        <div className="flex items-center justify-end mt-2">
           <button
             type="button"
             onClick={handleEditClick}

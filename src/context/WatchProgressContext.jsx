@@ -152,6 +152,8 @@ export function WatchProgressProvider({ children }) {
   const [warning, setWarning] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const localProgressRef = useRef(progressByMediaId);
+  const pendingSyncRef = useRef(new Map());
+  const syncTimeoutRef = useRef(null);
 
   useEffect(() => {
     localProgressRef.current = progressByMediaId;
@@ -240,6 +242,45 @@ export function WatchProgressProvider({ children }) {
     }
   }, [user]);
 
+  const flushPendingSync = useCallback(async () => {
+    if (pendingSyncRef.current.size === 0) return;
+    if (!user || !isSupabaseConfigured || !supabase) return;
+
+    const payload = Array.from(pendingSyncRef.current.values());
+    pendingSyncRef.current.clear();
+
+    try {
+      await syncProgress(payload);
+    } catch (error) {
+      setWarning('Unable to sync watch progress.');
+      throw error;
+    }
+  }, [syncProgress, user]);
+
+  const debouncedSync = useCallback((syncPayload) => {
+    const key = `${syncPayload.media_id}-${syncPayload.season_number}-${syncPayload.episode_number}`;
+    pendingSyncRef.current.set(key, syncPayload);
+
+    if (syncTimeoutRef.current) {
+      clearTimeout(syncTimeoutRef.current);
+    }
+
+    syncTimeoutRef.current = setTimeout(() => {
+      flushPendingSync();
+    }, 500);
+  }, [flushPendingSync]);
+
+  useEffect(() => {
+    return () => {
+      if (syncTimeoutRef.current) {
+        clearTimeout(syncTimeoutRef.current);
+      }
+      if (pendingSyncRef.current.size > 0) {
+        flushPendingSync();
+      }
+    };
+  }, [flushPendingSync]);
+
   const markEpisodeWatched = useCallback(async (mediaId, seasonNumber, episodeNumber, watched = true) => {
     const mediaKey = String(mediaId);
     const seasonKey = String(seasonNumber);
@@ -259,7 +300,7 @@ export function WatchProgressProvider({ children }) {
     }
 
     try {
-      await syncProgress([{
+      debouncedSync({
         user_id: user.id,
         media_type: 'tv',
         media_id: Number(mediaId),
@@ -267,28 +308,37 @@ export function WatchProgressProvider({ children }) {
         episode_number: Number(episodeNumber),
         watched,
         watched_at: watchedAt,
-      }]);
+      });
     } catch (error) {
       setWarning('Unable to sync watch progress.');
       return Promise.reject(error);
     }
     return Promise.resolve();
-  }, [syncProgress, user]);
+  }, [debouncedSync, user]);
 
-  const markSeasonWatched = useCallback(async (mediaId, seasonNumber, watched = true) => {
+  const markSeasonWatched = useCallback(async (
+    mediaId,
+    seasonNumber,
+    watched = true,
+    episodeNumbers = null,
+  ) => {
     const mediaKey = String(mediaId);
     const seasonKey = String(seasonNumber);
     const season = progressByMediaId?.[mediaKey]?.[seasonKey];
-    if (!season) {
+    const normalizedEpisodeNumbers = Array.isArray(episodeNumbers)
+      ? episodeNumbers.map((value) => Number(value)).filter(Number.isFinite)
+      : Object.keys(season || {}).map((value) => Number(value)).filter(Number.isFinite);
+
+    if (normalizedEpisodeNumbers.length === 0) {
       return Promise.resolve();
     }
 
     const watchedAt = watched ? new Date().toISOString() : null;
-    const episodeKeys = Object.keys(season);
+    const episodeKeys = normalizedEpisodeNumbers.map((value) => String(value));
     setProgressByMediaId((prev) => {
-      const currentMedia = prev[mediaKey];
-      if (!currentMedia || !currentMedia[seasonKey]) return prev;
-      const nextSeason = {};
+      const currentMedia = prev[mediaKey] || {};
+      const currentSeason = currentMedia[seasonKey] || {};
+      const nextSeason = { ...currentSeason };
       episodeKeys.forEach((episodeKey) => {
         nextSeason[episodeKey] = { watched, watchedAt };
       });
@@ -305,12 +355,12 @@ export function WatchProgressProvider({ children }) {
       return Promise.resolve();
     }
 
-    const payload = episodeKeys.map((episodeKey) => ({
+    const payload = normalizedEpisodeNumbers.map((episodeNumber) => ({
       user_id: user.id,
       media_type: 'tv',
       media_id: Number(mediaId),
       season_number: Number(seasonNumber),
-      episode_number: Number(episodeKey),
+      episode_number: episodeNumber,
       watched,
       watched_at: watchedAt,
     }));

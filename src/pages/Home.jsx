@@ -47,14 +47,14 @@ export default function Home() {
 
   if (isLoading) {
     return (
-      <div>
-        <h1 className="text-3xl md:text-4xl font-bold text-gray-900 dark:text-gray-100 mb-6">
+      <div className="px-4 sm:px-0">
+        <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold text-gray-900 dark:text-gray-100 mb-4 sm:mb-6">
           {pageTitle}
         </h1>
-        <div className="mb-4">
+        <div className="mb-3 sm:mb-4">
           <TabNavigation tabs={mediaTypeTabs} activeTab={mediaType} onTabChange={handleMediaTypeChange} />
         </div>
-        <div className="mb-8">
+        <div className="mb-6 sm:mb-8">
           <TabNavigation tabs={timeWindowTabs} activeTab={timeWindow} onTabChange={handleTimeWindowChange} />
         </div>
         <MovieGridSkeleton count={18} />
@@ -78,25 +78,25 @@ export default function Home() {
   }
 
   return (
-    <div>
-      <div className="mb-6">
-        <h1 className="text-3xl md:text-4xl font-bold text-gray-900 dark:text-gray-100 mb-2">
+    <div className="px-4 sm:px-0">
+      <div className="mb-6 sm:mb-8">
+        <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold text-gray-900 dark:text-gray-100 mb-2">
           {pageTitle}
         </h1>
-        <p className="text-gray-600 dark:text-gray-400">
+        <p className="text-sm sm:text-base text-gray-600 dark:text-gray-400">
           Discover the most popular {mediaType === 'movie' ? 'movies' : mediaType === 'tv' ? 'TV shows' : 'people'} right now
         </p>
       </div>
 
-      <div className="mb-4">
+      <div className="mb-3 sm:mb-4">
         <TabNavigation tabs={mediaTypeTabs} activeTab={mediaType} onTabChange={handleMediaTypeChange} />
       </div>
 
-      <div className="mb-8">
+      <div className="mb-6 sm:mb-8">
         <TabNavigation tabs={timeWindowTabs} activeTab={timeWindow} onTabChange={handleTimeWindowChange} />
       </div>
 
-      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-6">
+      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4 sm:gap-5 md:gap-6">
         {items.map((item) => (
           mediaType === 'movie' ? (
             <MovieCard key={item.id} movie={item} />

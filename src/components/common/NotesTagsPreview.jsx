@@ -26,7 +26,7 @@ export default function NotesTagsPreview({ notes, tags, onClick, disabled = fals
       onClick={onClick}
       disabled={isDisabled}
       aria-disabled={isDisabled}
-      className="flex w-full flex-col gap-1 rounded-lg border border-gray-200/80 bg-white/70 px-3 py-2 text-left text-xs text-gray-600 transition hover:border-gray-300 hover:bg-white disabled:cursor-not-allowed disabled:opacity-60 dark:border-gray-800/80 dark:bg-gray-900/60 dark:text-gray-300 dark:hover:border-gray-700"
+      className="flex h-full max-h-[4.5rem] w-full flex-col gap-1 overflow-hidden rounded-lg border border-gray-200/80 bg-white/70 px-3 py-2 text-left text-xs text-gray-600 transition hover:border-gray-300 hover:bg-white disabled:cursor-not-allowed disabled:opacity-60 dark:border-gray-800/80 dark:bg-gray-900/60 dark:text-gray-300 dark:hover:border-gray-700"
     >
       {visibleTags.length > 0 && (
         <div className="flex flex-wrap items-center gap-1">

@@ -3,23 +3,57 @@ import { getImageUrl } from '../../lib/tmdbClient';
 import { formatYear, formatRating } from '../../utils/format';
 import NotesTagsPreview from './NotesTagsPreview';
 import { normalizeNotes, normalizeTags } from '../../utils/annotations';
+import ProgressBar from './ProgressBar';
+import { useWatchProgress } from '../../context/WatchProgressContext';
 
 export default function TVShowCard({
   tvShow,
   notes,
   tags,
   listId,
+  showProgress = false,
+  onMarkWatched,
+  markWatchedDisabled = false,
   onEditNotesTags,
   annotationsDisabled = false,
 }) {
+  const { getProgress } = useWatchProgress();
   const posterUrl = getImageUrl(tvShow.poster_path, 'poster', 'medium');
   const showAnnotations = Boolean(listId);
   const canEdit = Boolean(onEditNotesTags) && !annotationsDisabled;
+  const canMarkWatched = Boolean(onMarkWatched) && !annotationsDisabled;
+  const progress = showProgress ? getProgress(tvShow.id) : null;
+  const totalFromSeasons = Array.isArray(tvShow?.seasons)
+    ? tvShow.seasons.reduce((sum, season) => {
+        const count = Number(season?.episode_count);
+        return Number.isFinite(count) ? sum + count : sum;
+      }, 0)
+    : 0;
+  const totalEpisodes = Number.isFinite(tvShow?.number_of_episodes)
+    ? tvShow.number_of_episodes
+    : totalFromSeasons;
+  const watchedEpisodes = progress?.watchedEpisodes || 0;
+  const hasTotal = totalEpisodes > 0;
+  const progressPercentage = hasTotal
+    ? Math.min(100, Math.round((watchedEpisodes / totalEpisodes) * 100))
+    : 0;
+  const progressLabel = hasTotal
+    ? `${watchedEpisodes}/${totalEpisodes} episodes watched (${progressPercentage}%)`
+    : watchedEpisodes > 0
+      ? `${watchedEpisodes} episode${watchedEpisodes === 1 ? '' : 's'} watched`
+      : 'Progress unavailable';
   const handleEditClick = (event) => {
     event.preventDefault();
     event.stopPropagation();
     if (!canEdit) return;
     onEditNotesTags?.(tvShow.id);
+  };
+
+  const handleMarkWatchedClick = (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+    if (!canMarkWatched || markWatchedDisabled) return;
+    onMarkWatched?.();
   };
 
   const cardContent = (
@@ -66,6 +100,22 @@ export default function TVShowCard({
         <p className="text-sm text-gray-600 dark:text-gray-400">
           {formatYear(tvShow.first_air_date)}
         </p>
+        {showProgress && (
+          <div className="mt-3">
+            {hasTotal ? (
+              <ProgressBar
+                current={watchedEpisodes}
+                total={totalEpisodes}
+                label={progressLabel}
+                size="sm"
+              />
+            ) : (
+              <div className="text-xs text-gray-600 dark:text-gray-400">
+                {progressLabel}
+              </div>
+            )}
+          </div>
+        )}
       </div>
     </>
   );
@@ -85,7 +135,7 @@ export default function TVShowCard({
   const normalizedNotes = normalizeNotes(notes);
   const normalizedTags = normalizeTags(tags);
   const hasPreview = normalizedTags.length > 0 || Boolean(normalizedNotes);
-  const actionsClassName = hasPreview ? 'mt-2' : 'mt-0';
+  const markWatchedTitle = markWatchedDisabled ? 'Updating progress...' : 'Mark next episode watched';
 
   return (
     <div className="group rounded-lg bg-gray-100 dark:bg-gray-800 shadow-md card-anim">
@@ -97,17 +147,40 @@ export default function TVShowCard({
         {cardContent}
       </Link>
       <div className="px-4 pb-4">
-        {hasPreview && (
-          <div className="mt-2">
+        <div className="mt-2 h-[4.5rem]">
+          {hasPreview ? (
             <NotesTagsPreview
               notes={normalizedNotes}
               tags={normalizedTags}
               onClick={handleEditClick}
               disabled={!canEdit}
             />
-          </div>
-        )}
-        <div className={`flex items-center justify-end ${actionsClassName}`}>
+          ) : null}
+        </div>
+        <div className="flex items-center justify-end gap-2 mt-2">
+          {onMarkWatched && (
+            <button
+              type="button"
+              onClick={handleMarkWatchedClick}
+              disabled={!canMarkWatched || markWatchedDisabled}
+              className="inline-flex items-center justify-center rounded-full border border-emerald-200 bg-emerald-50/80 p-2 text-emerald-600 transition hover:border-emerald-300 hover:text-emerald-700 disabled:cursor-not-allowed disabled:opacity-60 dark:border-emerald-700/70 dark:bg-emerald-900/30 dark:text-emerald-300 dark:hover:border-emerald-500 dark:hover:text-emerald-200"
+              aria-label={`Mark next episode watched for ${tvShow.name}`}
+              title={markWatchedTitle}
+            >
+              <svg
+                className="h-4 w-4"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.8"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                aria-hidden="true"
+              >
+                <path d="M5 13l4 4L19 7" />
+              </svg>
+            </button>
+          )}
           <button
             type="button"
             onClick={handleEditClick}

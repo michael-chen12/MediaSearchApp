@@ -48,12 +48,13 @@ html.theme-transitioning body::before {
   width: var(--theme-transition-size);
   height: var(--theme-transition-size);
   border-radius: 9999px;
-  background: var(--theme-transition-color);
+  background: radial-gradient(circle, var(--theme-transition-color) 0%, var(--theme-transition-color) 30%, transparent 70%);
+  opacity: 0.25;
   transform: scale(0);
-  animation: theme-reveal 650ms cubic-bezier(0.4, 0, 0.2, 1) forwards;
+  animation: theme-reveal 450ms cubic-bezier(0.22, 1, 0.36, 1) forwards;
   pointer-events: none;
-  z-index: 0;
-  will-change: transform;
+  z-index: 9999;
+  will-change: transform, opacity;
 }
 
 @layer base {
@@ -63,7 +64,7 @@ html.theme-transitioning body::before {
     background-attachment: fixed;
     position: relative;
     isolation: isolate;
-    @apply text-gray-900 dark:text-gray-100 transition-colors duration-200;
+    @apply text-gray-900 dark:text-gray-100;
   }
 }
 
@@ -73,6 +74,15 @@ html.theme-transitioning body::before {
 }
 
 @layer utilities {
+  .scrollbar-hide {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;
+  }
+
   .shimmer {
     background: linear-gradient(
       90deg,
@@ -343,6 +353,13 @@ html.theme-transitioning body::before {
     --list-toggle-shadow: rgba(37, 99, 235, 0.35);
   }
 
+  .list-toggle--calendar {
+    --list-toggle-color: #0f766e;
+    --list-toggle-hover: rgba(13, 148, 136, 0.14);
+    --list-toggle-badge: #0f766e;
+    --list-toggle-shadow: rgba(13, 148, 136, 0.35);
+  }
+
   .list-toggle--dark {
     --list-toggle-color: #93c5fd;
     --list-toggle-hover: rgba(147, 197, 253, 0.18);
@@ -441,8 +458,22 @@ html.theme-transitioning body::before {
 }
 
 @keyframes theme-reveal {
-  to {
+  0% {
+    transform: scale(0);
+    opacity: 0.25;
+  }
+  100% {
     transform: scale(1);
+    opacity: 0;
+  }
+}
+
+@keyframes fadeIn {
+  0% {
+    opacity: 0;
+  }
+  100% {
+    opacity: 1;
   }
 }
 
