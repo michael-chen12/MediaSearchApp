@@ -687,8 +687,15 @@ export function ListsProvider({ children }) {
       };
     });
 
-    if (user && isSupabaseConfigured && listItemId) {
+    const shouldSync = user && isSupabaseConfigured && !listId.startsWith('local-');
+    if (shouldSync && typeof navigator !== 'undefined' && navigator.onLine === false) {
+      return Promise.reject(new Error('Unable to sync list item.'));
+    }
+    if (shouldSync && listItemId) {
       return updateItemMutation.mutateAsync({ listItemId, updates: remoteUpdates });
+    }
+    if (shouldSync) {
+      return Promise.reject(new Error('Unable to sync list item.'));
     }
     return Promise.resolve();
   }, [updateItemMutation, user]);

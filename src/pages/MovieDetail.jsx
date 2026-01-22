@@ -149,9 +149,11 @@ export default function MovieDetail() {
                 )}
 
                 <div className="text-gray-100 min-w-0 flex flex-col justify-center">
-                  <h1 className="text-2xl sm:text-3xl md:text-5xl font-bold leading-tight mb-2">
-                    {movie.title}
-                  </h1>
+                  <div className="flex items-center justify-center sm:justify-start min-h-[3.5rem] sm:min-h-[4.5rem] md:min-h-[6rem] mb-2">
+                    <h1 className="w-full text-center sm:text-left text-2xl sm:text-3xl md:text-5xl font-bold leading-tight">
+                      {movie.title}
+                    </h1>
+                  </div>
 
                   <div className="hidden sm:block">
                     {movie.tagline && (

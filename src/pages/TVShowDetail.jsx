@@ -166,9 +166,11 @@ export default function TVShowDetail() {
                 )}
 
                 <div className="min-w-0 text-gray-100 flex flex-col justify-center">
-                  <h1 className="text-3xl md:text-5xl font-bold mb-2">
-                    {tvShow.name}
-                  </h1>
+                  <div className="flex items-center justify-center sm:justify-start min-h-[3.5rem] sm:min-h-[4.5rem] md:min-h-[6rem] mb-2">
+                    <h1 className="w-full text-center sm:text-left text-3xl md:text-5xl font-bold">
+                      {tvShow.name}
+                    </h1>
+                  </div>
 
                   <div className="hidden sm:block">
                     {tvShow.tagline && (
