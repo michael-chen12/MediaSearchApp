@@ -50,6 +50,16 @@ const normalizeListItem = (item) => {
   };
 };
 
+const REMOTE_ITEM_FIELDS = new Set([
+  'notes',
+  'tags',
+  'title',
+  'poster_path',
+  'release_date',
+  'added_at',
+  'position',
+]);
+
 const normalizeItemUpdates = (updates) => {
   const stateUpdates = { ...updates };
   const remoteUpdates = { ...updates };
@@ -65,6 +75,19 @@ const normalizeItemUpdates = (updates) => {
     stateUpdates.tags = tags;
     remoteUpdates.tags = tags.length > 0 ? tags : null;
   }
+
+  if (Object.prototype.hasOwnProperty.call(remoteUpdates, 'name')) {
+    delete remoteUpdates.name;
+  }
+  if (Object.prototype.hasOwnProperty.call(remoteUpdates, 'first_air_date')) {
+    delete remoteUpdates.first_air_date;
+  }
+
+  Object.keys(remoteUpdates).forEach((key) => {
+    if (!REMOTE_ITEM_FIELDS.has(key)) {
+      delete remoteUpdates[key];
+    }
+  });
 
   return { stateUpdates, remoteUpdates };
 };

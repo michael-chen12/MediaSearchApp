@@ -248,7 +248,9 @@ const needsMetadata = (item) => {
   const hasGenres = getItemGenreIds(item).length > 0;
   const hasPopularity = item.popularity !== undefined && item.popularity !== null;
   const hasVoteAverage = item.vote_average !== undefined && item.vote_average !== null;
-  return !(hasGenres && hasPopularity && hasVoteAverage);
+  const hasTitle = Boolean(item.title || item.name);
+  const hasDate = Boolean(item.release_date || item.first_air_date);
+  return !(hasGenres && hasPopularity && hasVoteAverage && hasTitle && hasDate);
 };
 
 const extractMetadata = (data) => {
@@ -258,11 +260,19 @@ const extractMetadata = (data) => {
     : [];
   const popularity = normalizeNumber(data.popularity);
   const voteAverage = normalizeNumber(data.vote_average);
+  const title = data.title || data.name;
+  const name = data.name || data.title;
+  const releaseDate = data.release_date || data.first_air_date;
+  const posterPath = data.poster_path;
 
   return {
     ...(genreIds.length > 0 ? { genre_ids: genreIds } : {}),
     ...(popularity !== undefined ? { popularity } : {}),
     ...(voteAverage !== undefined ? { vote_average: voteAverage } : {}),
+    ...(title ? { title } : {}),
+    ...(name ? { name } : {}),
+    ...(releaseDate ? { release_date: releaseDate } : {}),
+    ...(posterPath ? { poster_path: posterPath } : {}),
   };
 };
 
@@ -760,7 +770,7 @@ export default function Watchlist() {
       if (metadataEnrichedRef.current.has(item.id)) return;
       const updates = extractMetadata(query.data);
       if (Object.keys(updates).length === 0) return;
-      updateItemDetails(activeList.id, item.id, mediaType, updates);
+      updateItemDetails(activeList.id, item.id, mediaType, updates).catch(() => {});
       metadataEnrichedRef.current.add(item.id);
     });
   }, [activeList, itemsNeedingMetadata, metadataQueries, mediaType, updateItemDetails]);
@@ -1084,12 +1094,14 @@ export default function Watchlist() {
   const renderAnnotationSummary = (item) => {
     const tags = normalizeTags(item.tags);
     const notesPreview = formatNotesPreview(item.notes);
-    if (tags.length === 0 && !notesPreview) return null;
+    const hasContent = tags.length > 0 || Boolean(notesPreview);
     const visibleTags = tags.slice(0, TAG_PREVIEW_COUNT);
     const extraCount = tags.length - visibleTags.length;
-    const summaryClassName = `w-full rounded-lg border border-gray-200/80 dark:border-gray-800/80 bg-white/70 dark:bg-gray-900/60 px-3 py-2 text-left text-xs text-gray-600 dark:text-gray-300 transition ${
-      canEditAnnotations ? 'hover:border-gray-300 hover:bg-white dark:hover:border-gray-700' : 'opacity-60 cursor-default pointer-events-none'
-    }`;
+    const summaryClassName = `w-full rounded-lg border px-3 py-2 text-left text-xs transition ${
+      hasContent
+        ? 'border-gray-200/80 bg-white/70 text-gray-600 dark:border-gray-800/80 dark:bg-gray-900/60 dark:text-gray-300'
+        : 'border-dashed border-gray-200/80 bg-white/40 text-gray-400 dark:border-gray-800/70 dark:bg-gray-900/30 dark:text-gray-500'
+    } ${canEditAnnotations ? 'hover:border-gray-300 hover:bg-white dark:hover:border-gray-700' : 'opacity-60 cursor-default pointer-events-none'}`;
 
     return (
       <button
@@ -1097,29 +1109,40 @@ export default function Watchlist() {
         className={summaryClassName}
         onClick={() => openAnnotationEditor(item)}
         disabled={!canEditAnnotations}
-        aria-label={`Edit notes and tags for ${item.title || item.name || 'item'}`}
+        aria-label={`${hasContent ? 'Edit' : 'Add'} notes and tags for ${item.title || item.name || 'item'}`}
       >
-        {visibleTags.length > 0 && (
-          <div className="flex flex-wrap items-center gap-1">
-            {visibleTags.map((tag) => (
-              <span
-                key={tag}
-                className="inline-flex items-center rounded-full bg-gray-100 px-2 py-0.5 text-[11px] font-semibold text-gray-700 dark:bg-gray-800 dark:text-gray-200"
-              >
-                {tag}
-              </span>
-            ))}
-            {extraCount > 0 && (
-              <span className="inline-flex items-center rounded-full border border-gray-200 px-2 py-0.5 text-[11px] font-semibold text-gray-500 dark:border-gray-700 dark:text-gray-300">
-                +{extraCount}
-              </span>
+        {hasContent ? (
+          <>
+            {visibleTags.length > 0 && (
+              <div className="flex flex-wrap items-center gap-1">
+                {visibleTags.map((tag) => (
+                  <span
+                    key={tag}
+                    className="inline-flex items-center rounded-full bg-gray-100 px-2 py-0.5 text-[11px] font-semibold text-gray-700 dark:bg-gray-800 dark:text-gray-200"
+                  >
+                    {tag}
+                  </span>
+                ))}
+                {extraCount > 0 && (
+                  <span className="inline-flex items-center rounded-full border border-gray-200 px-2 py-0.5 text-[11px] font-semibold text-gray-500 dark:border-gray-700 dark:text-gray-300">
+                    +{extraCount}
+                  </span>
+                )}
+              </div>
             )}
+            {notesPreview && (
+              <p className="mt-1 line-clamp-1 text-xs text-gray-500 dark:text-gray-400">
+                {notesPreview}
+              </p>
+            )}
+          </>
+        ) : (
+          <div className="flex items-center gap-2 text-[11px] font-semibold">
+            <span className="inline-flex h-5 w-5 items-center justify-center rounded-full border border-gray-200 text-gray-400 dark:border-gray-700 dark:text-gray-500">
+              +
+            </span>
+            <span>Add notes or tags</span>
           </div>
-        )}
-        {notesPreview && (
-          <p className="mt-1 line-clamp-1 text-xs text-gray-500 dark:text-gray-400">
-            {notesPreview}
-          </p>
         )}
       </button>
     );
@@ -1662,24 +1685,6 @@ export default function Watchlist() {
                           aria-label={`${selectedIds.has(item.id) ? 'Deselect' : 'Select'} ${item.title || 'item'}`}
                         />
                       )}
-                      {!isSelecting && (
-                        <button
-                          type="button"
-                          className={`absolute right-2 top-2 z-10 inline-flex h-8 w-8 items-center justify-center rounded-full border border-white/80 bg-white/90 text-gray-700 shadow-sm transition hover:bg-white dark:border-gray-700 dark:bg-gray-900/80 dark:text-gray-200 ${canEditAnnotations ? '' : 'cursor-not-allowed opacity-50'}`}
-                          onClick={(event) => {
-                            event.preventDefault();
-                            event.stopPropagation();
-                            openAnnotationEditor(item);
-                          }}
-                          aria-label={`Edit notes and tags for ${item.title || 'item'}`}
-                          title="Notes & tags"
-                          disabled={!canEditAnnotations}
-                        >
-                          <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 20h9M16.5 3.5a2.25 2.25 0 013.182 3.182L7.5 19.313 3 21l1.687-4.5 11.813-13.013z" />
-                          </svg>
-                        </button>
-                      )}
                       <div className={canDrag ? 'pointer-events-none' : ''}>
                         <MovieCard movie={item} />
                       </div>
@@ -1709,24 +1714,6 @@ export default function Watchlist() {
                           aria-pressed={selectedIds.has(item.id)}
                           aria-label={`${selectedIds.has(item.id) ? 'Deselect' : 'Select'} ${item.name || 'item'}`}
                         />
-                      )}
-                      {!isSelecting && (
-                        <button
-                          type="button"
-                          className={`absolute right-2 top-2 z-10 inline-flex h-8 w-8 items-center justify-center rounded-full border border-white/80 bg-white/90 text-gray-700 shadow-sm transition hover:bg-white dark:border-gray-700 dark:bg-gray-900/80 dark:text-gray-200 ${canEditAnnotations ? '' : 'cursor-not-allowed opacity-50'}`}
-                          onClick={(event) => {
-                            event.preventDefault();
-                            event.stopPropagation();
-                            openAnnotationEditor(item);
-                          }}
-                          aria-label={`Edit notes and tags for ${item.name || 'item'}`}
-                          title="Notes & tags"
-                          disabled={!canEditAnnotations}
-                        >
-                          <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 20h9M16.5 3.5a2.25 2.25 0 013.182 3.182L7.5 19.313 3 21l1.687-4.5 11.813-13.013z" />
-                          </svg>
-                        </button>
                       )}
                       <div className={canDrag ? 'pointer-events-none' : ''}>
                         <TVShowCard tvShow={item} />

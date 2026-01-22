@@ -90,7 +90,7 @@ export default function MovieDetail() {
 
   return (
     <div>
-      <section className="relative w-screen left-1/2 -translate-x-1/2 -mt-8 mb-10">
+      <section className="relative w-screen left-1/2 -translate-x-1/2 -mt-8 mb-12">
         <div className="relative overflow-hidden">
           {backdropUrl ? (
             <img
@@ -103,7 +103,7 @@ export default function MovieDetail() {
           )}
           <div className="absolute inset-0 bg-gradient-to-r from-gray-950/90 via-gray-950/60 to-transparent" />
           <div className="absolute inset-0 bg-gradient-to-t from-gray-950/70 via-transparent to-transparent" />
-          <div className="absolute inset-x-0 bottom-0 h-20 bg-gradient-to-b from-transparent to-white dark:h-32 dark:from-transparent dark:to-gray-900" />
+          <div className="absolute inset-x-0 bottom-0 h-28 bg-gradient-to-b from-transparent to-white dark:h-36 dark:from-transparent dark:to-gray-900" />
 
           <div className="absolute right-6 top-6 z-20">
             <button
@@ -125,7 +125,7 @@ export default function MovieDetail() {
             </button>
           </div>
 
-          <div className="relative z-10 container mx-auto px-6 sm:px-8 lg:px-10 pt-4 sm:pt-6 md:pt-10 pb-5">
+          <div className="relative z-10 container mx-auto px-6 sm:px-8 lg:px-10 pt-4 sm:pt-6 md:pt-10 pb-6">
             <Link
               to="/"
               className="inline-flex items-center text-gray-200 hover:text-white transition-colors"
@@ -137,7 +137,7 @@ export default function MovieDetail() {
             </Link>
 
             <div className="mt-4 sm:mt-6 max-w-5xl">
-              <div className={`grid items-start gap-4 sm:gap-6 md:gap-8 ${posterUrl ? 'grid-cols-[auto_minmax(0,1fr)]' : ''}`}>
+              <div className={`grid gap-4 sm:gap-6 md:gap-8 ${posterUrl ? 'grid-cols-[auto_minmax(0,1fr)] items-center' : ''}`}>
                 {posterUrl && (
                   <div className="w-[140px] sm:w-[160px] md:w-[200px] lg:w-[220px] shrink-0 aspect-[2/3]">
                     <img
@@ -148,79 +148,112 @@ export default function MovieDetail() {
                   </div>
                 )}
 
-                <div className="text-gray-100">
+                <div className="text-gray-100 min-w-0 flex flex-col justify-center">
                   <h1 className="text-2xl sm:text-3xl md:text-5xl font-bold leading-tight mb-2">
                     {movie.title}
                   </h1>
 
-                  {movie.tagline && (
-                    <p className="text-base sm:text-lg md:text-xl text-gray-200/80 italic mb-2">
-                      "{movie.tagline}"
-                    </p>
-                  )}
+                  <div className="hidden sm:block">
+                    {movie.tagline && (
+                      <p className="text-base sm:text-lg md:text-xl text-gray-200/80 italic mb-2">
+                        "{movie.tagline}"
+                      </p>
+                    )}
 
-                  {movie.vote_average > 0 && (
-                    <div className="flex items-center gap-2 mb-3 sm:mb-4">
-                      <span className="text-xl">⭐</span>
-                      <span className="text-xl font-semibold">
-                        {formatRating(movie.vote_average)}
-                      </span>
-                      <span className="text-gray-200/70">
-                        ({formatVoteCount(movie.vote_count)} votes)
-                      </span>
+                    {movie.vote_average > 0 && (
+                      <div className="flex items-center gap-2 mb-3 sm:mb-4">
+                        <span className="text-xl">⭐</span>
+                        <span className="text-xl font-semibold">
+                          {formatRating(movie.vote_average)}
+                        </span>
+                        <span className="text-gray-200/70">
+                          ({formatVoteCount(movie.vote_count)} votes)
+                        </span>
+                      </div>
+                    )}
+
+                    <div className="flex flex-wrap gap-2 mb-4">
+                      {movie.genres?.map((genre) => (
+                        <span
+                          key={genre.id}
+                          className="px-3 py-1 rounded-full bg-white/10 text-white/90 text-xs font-semibold border border-white/10"
+                        >
+                          {genre.name}
+                        </span>
+                      ))}
                     </div>
-                  )}
-
-                  <div className="flex flex-wrap gap-2 mb-4">
-                    {movie.genres?.map((genre) => (
-                      <span
-                        key={genre.id}
-                        className="px-3 py-1 rounded-full bg-white/10 text-white/90 text-xs font-semibold border border-white/10"
-                      >
-                        {genre.name}
-                      </span>
-                    ))}
                   </div>
                 </div>
               </div>
             </div>
+
+            <div className="mt-4 text-gray-100 sm:hidden">
+              {movie.tagline && (
+                <p className="text-base text-gray-200/80 italic mb-2">
+                  "{movie.tagline}"
+                </p>
+              )}
+
+              {movie.vote_average > 0 && (
+                <div className="flex items-center gap-2 mb-3">
+                  <span className="text-xl">⭐</span>
+                  <span className="text-xl font-semibold">
+                    {formatRating(movie.vote_average)}
+                  </span>
+                  <span className="text-gray-200/70">
+                    ({formatVoteCount(movie.vote_count)} votes)
+                  </span>
+                </div>
+              )}
+
+              <div className="flex flex-wrap gap-2">
+                {movie.genres?.map((genre) => (
+                  <span
+                    key={genre.id}
+                    className="px-3 py-1 rounded-full bg-white/10 text-white/90 text-xs font-semibold border border-white/10"
+                  >
+                    {genre.name}
+                  </span>
+                ))}
+              </div>
+            </div>
           </div>
-        </div>
-      </section>
 
-      <section className="mb-12">
-        <div className="max-w-4xl">
-          <p className="text-sm md:text-base text-gray-700 dark:text-gray-300 leading-relaxed">
-            {movie.overview || 'No overview available.'}
-          </p>
+          <div className="relative z-10 container mx-auto px-6 sm:px-8 lg:px-10 pb-14">
+            <div className="max-w-4xl text-gray-200/90">
+              <p className="text-sm md:text-base leading-relaxed">
+                {movie.overview || 'No overview available.'}
+              </p>
 
-          <div className="mt-6 grid gap-3 sm:grid-cols-2 text-sm text-gray-700 dark:text-gray-300">
-            <div>
-              <span className="font-semibold text-gray-900 dark:text-gray-100">Release Date:</span>{' '}
-              {formatDate(movie.release_date)}
+              <div className="mt-6 grid gap-3 text-sm text-gray-200/90 sm:grid-cols-2">
+                <div>
+                  <span className="font-semibold text-white">Release Date:</span>{' '}
+                  {formatDate(movie.release_date)}
+                </div>
+                <div>
+                  <span className="font-semibold text-white">Runtime:</span>{' '}
+                  {formatRuntime(movie.runtime)}
+                </div>
+                {movie.budget > 0 && (
+                  <div>
+                    <span className="font-semibold text-white">Budget:</span>{' '}
+                    {formatCurrency(movie.budget)}
+                  </div>
+                )}
+                {movie.revenue > 0 && (
+                  <div>
+                    <span className="font-semibold text-white">Revenue:</span>{' '}
+                    {formatCurrency(movie.revenue)}
+                  </div>
+                )}
+                {director && (
+                  <div className="sm:col-span-2">
+                    <span className="font-semibold text-white">Director:</span>{' '}
+                    {director.name}
+                  </div>
+                )}
+              </div>
             </div>
-            <div>
-              <span className="font-semibold text-gray-900 dark:text-gray-100">Runtime:</span>{' '}
-              {formatRuntime(movie.runtime)}
-            </div>
-            {movie.budget > 0 && (
-              <div>
-                <span className="font-semibold text-gray-900 dark:text-gray-100">Budget:</span>{' '}
-                {formatCurrency(movie.budget)}
-              </div>
-            )}
-            {movie.revenue > 0 && (
-              <div>
-                <span className="font-semibold text-gray-900 dark:text-gray-100">Revenue:</span>{' '}
-                {formatCurrency(movie.revenue)}
-              </div>
-            )}
-            {director && (
-              <div className="sm:col-span-2">
-                <span className="font-semibold text-gray-900 dark:text-gray-100">Director:</span>{' '}
-                {director.name}
-              </div>
-            )}
           </div>
         </div>
       </section>

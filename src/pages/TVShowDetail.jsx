@@ -154,7 +154,7 @@ export default function TVShowDetail() {
             </Link>
 
             <div className="mt-6 max-w-5xl">
-              <div className="flex flex-row items-start gap-4 sm:gap-6 md:gap-8">
+              <div className="flex flex-row items-center gap-4 sm:gap-6 md:gap-8">
                 {posterUrl && (
                   <div className="w-32 sm:w-40 md:w-52 shrink-0">
                     <img
@@ -165,7 +165,7 @@ export default function TVShowDetail() {
                   </div>
                 )}
 
-                <div className="min-w-0 text-gray-100">
+                <div className="min-w-0 text-gray-100 flex flex-col justify-center">
                   <h1 className="text-3xl md:text-5xl font-bold mb-2">
                     {tvShow.name}
                   </h1>
