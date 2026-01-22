@@ -1,116 +1,92 @@
 # Movie Explorer
 
-A modern movie search and discovery application built with React, powered by The Movie Database (TMDB) API.
+Search movies, build watchlists, track what you want to see. 
+Syncs across devices with auth, works offline without it.
+
+## What I Built
+
+- Full-text movie/TV search powered by TMDB's database
+- Personal watchlists + custom lists (notes, tags, drag-to-reorder)
+- Auth with Supabase that syncs your data across devices
+- Graceful fallback to localStorage if you skip the signup
+- Serverless API proxy so my TMDB key stays hidden
+- Optional analytics (Plausible, Google Analytics) that respects DNT
+
+## Why I Built It
+
+- Wanted to actually *use* something I built (I have 47 unwatched movies saved)
+- Sick of apps that force signup before you can try anything
+- Chance to wire up a full auth flow with real backend sync, but keep it simple
+
 
 ## Tech Stack
 
-- **Frontend**: Vite + React (JavaScript)
-- **Styling**: Tailwind CSS
-- **Data Fetching**: TanStack Query (React Query)
-- **Routing**: React Router
-- **Backend**: Vercel Serverless Functions (proxy to hide API key)
-- **Auth & Sync**: Supabase (email/password)
+**Frontend:** React, Vite, TanStack Query, React Router  
+**Styling:** Tailwind CSS  
+**Backend:** Vercel serverless functions (proxies to TMDB)  
+**Auth/DB:** Supabase (Postgres + RLS, optional)  
+**Analytics:** Plausible
 
-## Project Structure
+## Architecture
 
 ```
-MediaSearchApp/
-├── api/                      # Vercel serverless functions
-│   └── tmdb/
-│       ├── search.js         # Proxy for movie search
-│       ├── movie.js          # Proxy for movie details
-│       ├── trending.js       # Proxy for trending movies
-│       ├── credits.js        # Proxy for movie credits
-│       └── similar.js        # Proxy for similar movies
-├── src/
-│   ├── lib/
-│   │   ├── http.js           # Reusable fetch wrapper
-│   │   └── tmdbClient.js     # API client (calls proxy endpoints)
-│   ├── components/           # React components (for future UI)
-│   ├── pages/                # Page components (for future UI)
-│   ├── App.jsx               # Main app with routing
-│   └── main.jsx              # Entry point with providers
-└── public/
+Browser
+   ↓ calls /api/tmdb/search, /api/tmdb/movie, etc.
+Vercel Functions (keeps TMDB_API_KEY server-side)
+   ↓ proxies to
+TMDB API
 ```
 
-## Setup Instructions
+No direct calls from the client to TMDB. The API key lives only in Vercel env vars.
 
-### 1. Get TMDB API Key
+Lists live in Supabase (with RLS policies) if you're signed in, otherwise localStorage. On first login, any local watchlist data migrates to Supabase once.
 
-1. Go to [The Movie Database](https://www.themoviedb.org/)
-2. Create an account and sign in
-3. Go to Settings > API
-4. Request an API key (choose "Developer" option)
-5. Copy your API key
+## Run Locally
 
-### 2. Install Dependencies
+1. Get a [TMDB API key](https://www.themoviedb.org/settings/api)
+2. Clone and install:
+   ```bash
+   npm install
+   ```
+3. Copy `.env.example` to `.env` and fill in:
+   ```env
+   TMDB_API_KEY=your_key_here
+   VITE_SUPABASE_URL=your_supabase_url
+   VITE_SUPABASE_ANON_KEY=your_supabase_key
+   ```
+4. Create Supabase tables (see SQL below) or skip for localStorage-only mode
+5. Run with Vercel CLI:
+   ```bash
+   npm install -g vercel
+   vercel dev
+   ```
 
-```bash
-npm install
-```
+Open `http://localhost:3000`
 
-### 3. Configure Environment Variables
+### Supabase Setup (Optional)
 
-Create a `.env` file in the project root:
-
-```bash
-cp .env.example .env
-```
-
-Edit `.env` and add your TMDB API key:
-
-```env
-# Required: TMDB API Key
-TMDB_API_KEY=your_actual_tmdb_api_key_here
-
-# Required for auth + synced lists
-VITE_SUPABASE_URL=your_supabase_project_url
-VITE_SUPABASE_ANON_KEY=your_supabase_anon_key
-
-# Optional: Analytics Configuration
-VITE_PLAUSIBLE_DOMAIN=yourdomain.com
-VITE_GA_MEASUREMENT_ID=G-XXXXXXXXXX
-VITE_RESPECT_DNT=true
-```
-
-**Important**: 
-- Do NOT use `VITE_` prefix for the TMDB API key (must remain server-side only)
-- Analytics keys can be left empty if you don't want tracking
-- See [docs/ANALYTICS.md](docs/ANALYTICS.md) for analytics setup guide
-
-### 4. Supabase Setup (Auth + Synced Lists)
-
-1. Create a Supabase project and enable Email/Password auth.
-2. (Optional) Enable Google provider and add redirect URLs (e.g. `http://localhost:5173/login`).
-3. Run the SQL below in the Supabase SQL editor to create tables and policies.
-4. If Supabase env vars are missing, the app falls back to localStorage-only lists.
-5. On first login, existing local watchlist data is migrated once to Supabase.
+If you want auth + cloud sync, create a Supabase project and run this SQL:
 
 ```sql
-create extension if not exists \"pgcrypto\";
-
-create table if not exists profiles (
+create table profiles (
   id uuid primary key references auth.users(id) on delete cascade,
   email text,
   display_name text,
   avatar_url text,
-  locale text,
-  created_at timestamptz default now(),
-  updated_at timestamptz default now()
+  created_at timestamptz default now()
 );
 
-create table if not exists lists (
+create table lists (
   id uuid primary key default gen_random_uuid(),
   user_id uuid not null references auth.users(id) on delete cascade,
   name text not null,
   type text not null check (type in ('watchlist', 'custom')),
   position int default 0,
   created_at timestamptz default now(),
-  updated_at timestamptz default now(),
   unique (user_id, name)
 );
 
-create table if not exists list_items (
+create table list_items (
   id uuid primary key default gen_random_uuid(),
   list_id uuid not null references lists(id) on delete cascade,
   media_type text not null check (media_type in ('movie', 'tv')),
@@ -122,187 +98,35 @@ create table if not exists list_items (
   notes text,
   tags text[],
   position int default 0,
-  extra jsonb,
   unique (list_id, media_type, media_id)
 );
-
-create index if not exists list_items_list_id_idx on list_items (list_id);
-create index if not exists list_items_position_idx on list_items (list_id, position);
-create index if not exists list_items_media_idx on list_items (media_type, media_id);
 
 alter table lists enable row level security;
 alter table list_items enable row level security;
 alter table profiles enable row level security;
 
-create policy \"Profiles are viewable by owner\" on profiles
-  for select using (auth.uid() = id);
-create policy \"Profiles are insertable by owner\" on profiles
-  for insert with check (auth.uid() = id);
-create policy \"Profiles are updatable by owner\" on profiles
-  for update using (auth.uid() = id);
-create policy \"Profiles are deletable by owner\" on profiles
-  for delete using (auth.uid() = id);
-
-create policy \"Lists are viewable by owner\" on lists
-  for select using (auth.uid() = user_id);
-create policy \"Lists are insertable by owner\" on lists
-  for insert with check (auth.uid() = user_id);
-create policy \"Lists are updatable by owner\" on lists
-  for update using (auth.uid() = user_id);
-create policy \"Lists are deletable by owner\" on lists
-  for delete using (auth.uid() = user_id);
-
-create policy \"List items are viewable by owner\" on list_items
-  for select using (
-    exists (
-      select 1 from lists
-      where lists.id = list_items.list_id
-        and lists.user_id = auth.uid()
-    )
-  );
-create policy \"List items are insertable by owner\" on list_items
-  for insert with check (
-    exists (
-      select 1 from lists
-      where lists.id = list_items.list_id
-        and lists.user_id = auth.uid()
-    )
-  );
-create policy \"List items are updatable by owner\" on list_items
-  for update using (
-    exists (
-      select 1 from lists
-      where lists.id = list_items.list_id
-        and lists.user_id = auth.uid()
-    )
-  );
-create policy \"List items are deletable by owner\" on list_items
-  for delete using (
-    exists (
-      select 1 from lists
-      where lists.id = list_items.list_id
-        and lists.user_id = auth.uid()
-    )
-  );
+-- RLS policies: users can only see/edit their own data
+create policy "Own data only" on lists for all using (auth.uid() = user_id);
+create policy "Own data only" on list_items for all using (
+  exists (select 1 from lists where lists.id = list_items.list_id and lists.user_id = auth.uid())
+);
+create policy "Own data only" on profiles for all using (auth.uid() = id);
 ```
 
-Migration notes (existing projects):
-```sql
-alter table lists drop constraint if exists lists_user_id_type_key;
-alter table lists add column if not exists position int default 0;
-alter table lists add constraint lists_user_id_name_key unique (user_id, name);
+## Tradeoffs / Lessons Learned
 
-alter table list_items add column if not exists position int default 0;
-alter table list_items add column if not exists tags text[];
-```
+**Vercel serverless proxy:** Adds latency vs. calling TMDB directly, but keeps my key secure and gives me a stable API surface if I want to switch providers later.
 
-Optional profile avatars (Supabase Storage):
-1. Create a public bucket named `avatars`.
-2. Add storage policies for authenticated uploads and public reads (matches the `userId/avatar.ext` path used by the app):
+**localStorage fallback:** Makes onboarding frictionless but means I have to handle migration logic. Worth it—most people just want to try the app without creating an account.
 
-```sql
-insert into storage.buckets (id, name, public)
-values ('avatars', 'avatars', true)
-on conflict do nothing;
+**Supabase RLS:** Took a few tries to get the policies right (especially the nested `list_items` check), but now I don't have to write a single auth middleware function. Postgres does the security.
 
-create policy "Avatar uploads are allowed" on storage.objects
-  for insert to authenticated
-  with check (
-    bucket_id = 'avatars'
-    and (storage.foldername(name))[1] = auth.uid()::text
-  );
+**TanStack Query:** Overkill for a small app, but caching is automatic and I don't have to think about loading states. Would use again.
 
-create policy "Avatar updates are allowed" on storage.objects
-  for update to authenticated
-  using (
-    bucket_id = 'avatars'
-    and (storage.foldername(name))[1] = auth.uid()::text
-  );
+## Next Improvements
 
-create policy "Avatar reads are public" on storage.objects
-  for select
-  using (bucket_id = 'avatars');
-```
-
-### 5. Running the Application
-
-You need to run **both** the frontend dev server and the Vercel functions locally.
-
-#### Option A: Using Vercel CLI (Recommended)
-
-Install Vercel CLI globally:
-
-```bash
-npm install -g vercel
-```
-
-Run both frontend and serverless functions:
-
-```bash
-vercel dev
-```
-
-This will:
-- Start the Vite dev server
-- Start the Vercel serverless functions
-- Make everything available at `http://localhost:3000`
-
-#### Option B: Separate processes
-
-Terminal 1 - Frontend:
-```bash
-npm run dev
-```
-
-Terminal 2 - Serverless functions (requires Vercel CLI):
-```bash
-vercel dev --listen 3001
-```
-
-Then configure your frontend to proxy API requests to port 3001.
-
-## Available Routes
-
-- `/` - Home page (placeholder)
-- `/search` - Search page (placeholder)
-- `/login` - Log in
-- `/signup` - Create account
-- `/watchlist` - Watchlist & custom lists
-- `/profile` - Profile settings
-
-## API Endpoints (Serverless Proxy)
-
-All endpoints are under `/api/tmdb/`:
-
-- `GET /api/tmdb/search?q=<query>&page=<page>` - Search movies
-- `GET /api/tmdb/movie?id=<movieId>` - Get movie details
-- `GET /api/tmdb/trending?timeWindow=<day|week>&page=<page>` - Get trending movies
-- `GET /api/tmdb/credits?id=<movieId>` - Get movie credits
-- `GET /api/tmdb/similar?id=<movieId>&page=<page>` - Get similar movies
-
-## Development Notes
-
-### Why Serverless Proxy?
-
-The TMDB API key is kept secure on the server side. Client code calls our Vercel functions, which then proxy requests to TMDB. This prevents the API key from being exposed in the browser.
-
-### Architecture
-
-```
-Browser → Vercel Functions (/api/tmdb/*) → TMDB API
-          (API key here, secure)
-```
-
-Client code uses `src/lib/tmdbClient.js` which calls our proxy endpoints, never TMDB directly.
-
-## Next Steps
-
-This is the foundation setup. Future development will add:
-- Full search UI with movie cards
-- Movie detail pages with cast, reviews, etc.
-- Responsive design and dark mode
-- Advanced filtering and discovery features
-
-## License
-
-MIT
+- [ ] Recommendations based on your watchlist (collaborative filtering or genre matching)
+- [ ] Share lists publicly with a read-only link
+- [ ] PWA support for offline access
+- [ ] Drag-and-drop list reordering on mobile
+- [ ] Filter by genre, year, rating before searching
