@@ -103,7 +103,7 @@ export default function MovieDetail() {
           )}
           <div className="absolute inset-0 bg-gradient-to-r from-gray-950/90 via-gray-950/60 to-transparent" />
           <div className="absolute inset-0 bg-gradient-to-t from-gray-950/70 via-transparent to-transparent" />
-          <div className="absolute inset-x-0 bottom-0 h-20 dark:bg-gradient-to-b dark:from-transparent dark:to-gray-900" />
+          <div className="absolute inset-x-0 bottom-0 h-20 bg-gradient-to-b from-transparent to-white dark:h-32 dark:from-transparent dark:to-gray-900" />
 
           <div className="absolute right-6 top-6 z-20">
             <button
@@ -111,7 +111,10 @@ export default function MovieDetail() {
                 id: movie.id,
                 title: movie.title,
                 poster_path: movie.poster_path,
-                release_date: movie.release_date
+                release_date: movie.release_date,
+                genre_ids: movie.genres?.map((genre) => genre.id).filter(Boolean),
+                popularity: movie.popularity,
+                vote_average: movie.vote_average
               }, 'movie')}
               className="p-3 rounded-full bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm hover:bg-white dark:hover:bg-gray-800 transition-all shadow-lg hover:scale-110"
               aria-label={isInSystemList('watchlist', movie.id, 'movie') ? 'Remove from watchlist' : 'Add to watchlist'}

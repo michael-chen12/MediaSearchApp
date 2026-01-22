@@ -16,6 +16,39 @@ const RETIRED_LIST_TYPES = new Set(['favorites']);
 
 const emptyItems = () => ({ movies: [], tvShows: [] });
 
+const normalizeNumber = (value) => {
+  const numeric = Number(value);
+  return Number.isFinite(numeric) ? numeric : undefined;
+};
+
+const deriveGenreIds = (item) => {
+  if (Array.isArray(item.genre_ids) && item.genre_ids.length > 0) {
+    return item.genre_ids
+      .map((id) => Number(id))
+      .filter((id) => Number.isFinite(id));
+  }
+  if (Array.isArray(item.genres) && item.genres.length > 0) {
+    return item.genres
+      .map((genre) => Number(genre?.id))
+      .filter((id) => Number.isFinite(id));
+  }
+  return [];
+};
+
+const normalizeListItem = (item) => {
+  if (!item || typeof item !== 'object') return item;
+  const genreIds = deriveGenreIds(item);
+  const popularity = normalizeNumber(item.popularity);
+  const voteAverage = normalizeNumber(item.vote_average);
+
+  return {
+    ...item,
+    genre_ids: genreIds.length > 0 ? genreIds : item.genre_ids || [],
+    ...(popularity !== undefined ? { popularity } : {}),
+    ...(voteAverage !== undefined ? { vote_average: voteAverage } : {}),
+  };
+};
+
 const buildLocalState = (overrides = {}) => ({
   lists: SYSTEM_LISTS.map((list) => ({
     ...list,
@@ -70,6 +103,7 @@ const readLocalState = () => {
 };
 
 const buildListItemPayload = (listId, item, mediaType, position) => {
+  const normalizedItem = normalizeListItem(item);
   const title = mediaType === 'movie' ? item.title : item.name;
   const releaseDate = mediaType === 'movie' ? item.release_date : item.first_air_date;
 
@@ -84,7 +118,7 @@ const buildListItemPayload = (listId, item, mediaType, position) => {
     notes: item.notes || null,
     tags: item.tags || null,
     position: Number.isFinite(position) ? position : item.position || 0,
-    extra: item,
+    extra: normalizedItem,
   };
 };
 
@@ -95,7 +129,7 @@ const mapRemoteItems = (items) => items.reduce((acc, item) => {
   }
 
   const extra = item.extra && typeof item.extra === 'object' ? item.extra : {};
-  const normalized = {
+  const normalized = normalizeListItem({
     ...extra,
     id: item.media_id,
     list_item_id: item.id,
@@ -109,7 +143,7 @@ const mapRemoteItems = (items) => items.reduce((acc, item) => {
     position: item.position ?? 0,
     notes: item.notes || null,
     tags: item.tags || null,
-  };
+  });
 
   if (item.media_type === 'movie') {
     acc[listId].movies.push(normalized);
@@ -458,6 +492,7 @@ export function ListsProvider({ children }) {
     if (user && isSupabaseConfigured && listId.startsWith('local-')) {
       return;
     }
+    const normalizedItem = normalizeListItem(item);
     setItemsByListId((prev) => {
       const listItems = prev[listId] || emptyItems();
       const key = mediaType === 'movie' ? 'movies' : 'tvShows';
@@ -467,8 +502,8 @@ export function ListsProvider({ children }) {
       }
 
       const nextItem = {
-        ...item,
-        added_at: item.added_at || new Date().toISOString(),
+        ...normalizedItem,
+        added_at: normalizedItem.added_at || new Date().toISOString(),
         position: listItems[key].length,
       };
 

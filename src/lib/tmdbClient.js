@@ -205,6 +205,38 @@ export async function getTrendingPeople(timeWindow = 'week', page = 1) {
 }
 
 /**
+ * Get genre list for movies or TV shows
+ */
+export async function getGenreList(mediaType = 'movie') {
+  const type = mediaType === 'tv' ? 'tv' : 'movie';
+  const params = new URLSearchParams({
+    endpoint: `genre/${type}/list`,
+  });
+  return http(`${API_BASE}?${params}`);
+}
+
+/**
+ * Get watch providers for a movie or TV show
+ */
+export async function getWatchProviders(mediaType, id) {
+  const type = mediaType === 'tv' ? 'tv' : 'movie';
+  const params = new URLSearchParams({
+    endpoint: `${type}/${id}/watch/providers`,
+  });
+  return http(`${API_BASE}?${params}`);
+}
+
+/**
+ * Get available watch provider regions
+ */
+export async function getWatchProviderRegions() {
+  const params = new URLSearchParams({
+    endpoint: 'watch/providers/regions',
+  });
+  return http(`${API_BASE}?${params}`);
+}
+
+/**
  * Get collection details by ID
  */
 export async function getCollectionDetails(collectionId) {

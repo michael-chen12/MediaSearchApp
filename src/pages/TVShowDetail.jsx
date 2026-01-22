@@ -106,8 +106,8 @@ export default function TVShowDetail() {
   const posterUrl = getImageUrl(tvShow.poster_path, 'poster', 'large');
 
   return (
-    <div className="pt-6 md:pt-12">
-      <section className="relative w-screen left-1/2 -translate-x-1/2 -mt-6 md:-mt-12 mb-12">
+    <div>
+      <section className="relative w-screen left-1/2 -translate-x-1/2 -mt-8 mb-12">
         <div className="relative min-h-[420px] md:min-h-[540px] overflow-hidden">
           {backdropUrl ? (
             <img
@@ -120,6 +120,7 @@ export default function TVShowDetail() {
           )}
           <div className="absolute inset-0 bg-gradient-to-r from-gray-950/90 via-gray-950/60 to-transparent" />
           <div className="absolute inset-0 bg-gradient-to-t from-gray-950/70 via-transparent to-transparent" />
+          <div className="absolute inset-x-0 bottom-0 h-20 bg-gradient-to-b from-transparent to-white dark:h-32 dark:from-transparent dark:to-gray-900" />
 
           <div className="absolute right-6 top-6 z-20">
             <button
@@ -127,7 +128,10 @@ export default function TVShowDetail() {
                 id: tvShow.id,
                 name: tvShow.name,
                 poster_path: tvShow.poster_path,
-                first_air_date: tvShow.first_air_date
+                first_air_date: tvShow.first_air_date,
+                genre_ids: tvShow.genres?.map((genre) => genre.id).filter(Boolean),
+                popularity: tvShow.popularity,
+                vote_average: tvShow.vote_average
               }, 'tv')}
               className="p-3 rounded-full bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm hover:bg-white dark:hover:bg-gray-800 transition-all shadow-lg hover:scale-110"
               aria-label={isInSystemList('watchlist', tvShow.id, 'tv') ? 'Remove from watchlist' : 'Add to watchlist'}
@@ -138,7 +142,7 @@ export default function TVShowDetail() {
             </button>
           </div>
 
-          <div className="relative z-10 px-6 sm:px-8 lg:px-10 py-8 md:py-12">
+          <div className="relative z-10 container mx-auto px-6 sm:px-8 lg:px-10 py-8 md:py-12">
             <Link
               to="/"
               className="inline-flex items-center text-gray-200 hover:text-white transition-colors"
@@ -150,7 +154,7 @@ export default function TVShowDetail() {
             </Link>
 
             <div className="mt-6 max-w-5xl">
-              <div className="flex flex-col sm:flex-row gap-6 md:gap-8">
+              <div className="flex flex-row items-start gap-4 sm:gap-6 md:gap-8">
                 {posterUrl && (
                   <div className="w-32 sm:w-40 md:w-52 shrink-0">
                     <img
@@ -161,39 +165,72 @@ export default function TVShowDetail() {
                   </div>
                 )}
 
-                <div className="text-gray-100">
+                <div className="min-w-0 text-gray-100">
                   <h1 className="text-3xl md:text-5xl font-bold mb-2">
                     {tvShow.name}
                   </h1>
 
-                  {tvShow.tagline && (
-                    <p className="text-lg md:text-xl text-gray-200/80 italic mb-3">
-                      "{tvShow.tagline}"
-                    </p>
-                  )}
+                  <div className="hidden sm:block">
+                    {tvShow.tagline && (
+                      <p className="text-lg md:text-xl text-gray-200/80 italic mb-3">
+                        "{tvShow.tagline}"
+                      </p>
+                    )}
 
-                  {tvShow.vote_average > 0 && (
-                    <div className="flex items-center gap-2 mb-4">
-                      <span className="text-xl">⭐</span>
-                      <span className="text-xl font-semibold">
-                        {formatRating(tvShow.vote_average)}
-                      </span>
-                      <span className="text-gray-200/70">
-                        ({formatVoteCount(tvShow.vote_count)} votes)
-                      </span>
+                    {tvShow.vote_average > 0 && (
+                      <div className="flex items-center gap-2 mb-4">
+                        <span className="text-xl">⭐</span>
+                        <span className="text-xl font-semibold">
+                          {formatRating(tvShow.vote_average)}
+                        </span>
+                        <span className="text-gray-200/70">
+                          ({formatVoteCount(tvShow.vote_count)} votes)
+                        </span>
+                      </div>
+                    )}
+
+                    <div className="flex flex-wrap gap-2 mb-4">
+                      {tvShow.genres?.map((genre) => (
+                        <span
+                          key={genre.id}
+                          className="px-3 py-1 rounded-full bg-white/10 text-white/90 text-xs font-semibold border border-white/10"
+                        >
+                          {genre.name}
+                        </span>
+                      ))}
                     </div>
-                  )}
-
-                  <div className="flex flex-wrap gap-2 mb-4">
-                    {tvShow.genres?.map((genre) => (
-                      <span
-                        key={genre.id}
-                        className="px-3 py-1 rounded-full bg-white/10 text-white/90 text-xs font-semibold border border-white/10"
-                      >
-                        {genre.name}
-                      </span>
-                    ))}
                   </div>
+                </div>
+              </div>
+
+              <div className="mt-4 text-gray-100 sm:hidden">
+                {tvShow.tagline && (
+                  <p className="text-lg text-gray-200/80 italic mb-3">
+                    "{tvShow.tagline}"
+                  </p>
+                )}
+
+                {tvShow.vote_average > 0 && (
+                  <div className="flex items-center gap-2 mb-4">
+                    <span className="text-xl">⭐</span>
+                    <span className="text-xl font-semibold">
+                      {formatRating(tvShow.vote_average)}
+                    </span>
+                    <span className="text-gray-200/70">
+                      ({formatVoteCount(tvShow.vote_count)} votes)
+                    </span>
+                  </div>
+                )}
+
+                <div className="flex flex-wrap gap-2">
+                  {tvShow.genres?.map((genre) => (
+                    <span
+                      key={genre.id}
+                      className="px-3 py-1 rounded-full bg-white/10 text-white/90 text-xs font-semibold border border-white/10"
+                    >
+                      {genre.name}
+                    </span>
+                  ))}
                 </div>
               </div>
 

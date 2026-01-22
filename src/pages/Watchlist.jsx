@@ -1,5 +1,6 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useSearchParams, Link } from 'react-router-dom';
+import { useQuery, useQueries } from '@tanstack/react-query';
 import {
   DndContext,
   DragOverlay,
@@ -24,7 +25,15 @@ import TVShowCard from '../components/common/TVShowCard';
 import EmptyState from '../components/common/EmptyState';
 import { MovieGridSkeleton } from '../components/common/LoadingSkeleton';
 import Modal from '../components/common/Modal';
+import FloatingModeActions from '../components/common/FloatingModeActions';
 import Button from '../components/base/Button';
+import {
+  getGenreList,
+  getMovieDetails,
+  getTVShowDetails,
+  getWatchProviderRegions,
+  getWatchProviders,
+} from '../lib/tmdbClient';
 
 function SortableItem({ id, disabled, className, children }) {
   const {
@@ -101,6 +110,148 @@ function SelectionToggle({ selected, onToggle, label }) {
   );
 }
 
+const DEFAULT_PROVIDER_REGION = (import.meta.env.VITE_WATCH_PROVIDER_REGION || '').trim();
+const PROVIDER_BUCKETS = ['flatrate', 'rent', 'buy', 'ads', 'free'];
+const PROVIDER_TYPE_OPTIONS = [
+  { id: 'flatrate', label: 'Streaming' },
+  { id: 'rent', label: 'Rent' },
+  { id: 'buy', label: 'Buy' },
+  { id: 'ads', label: 'Ads' },
+  { id: 'free', label: 'Free' },
+];
+const SORT_OPTIONS = [
+  { id: 'manual', label: 'Manual' },
+  { id: 'recent', label: 'Recently added' },
+  { id: 'title', label: 'Title' },
+  { id: 'release', label: 'Release date' },
+  { id: 'popularity', label: 'Popularity' },
+];
+const PROVIDER_CACHE_KEY = 'watch_providers_cache_v1';
+const PROVIDER_CACHE_TTL = 1000 * 60 * 60 * 24;
+const MAX_METADATA_FETCH = 25;
+
+const providerCacheState = {
+  loaded: false,
+  data: {},
+};
+
+const inferProviderRegion = () => {
+  if (DEFAULT_PROVIDER_REGION) return DEFAULT_PROVIDER_REGION.toUpperCase();
+  if (typeof navigator === 'undefined') return 'US';
+  const parts = (navigator.language || '').split('-').filter(Boolean);
+  if (parts.length < 2) return 'US';
+  return parts[parts.length - 1].toUpperCase();
+};
+
+const normalizeNumber = (value) => {
+  const numeric = Number(value);
+  return Number.isFinite(numeric) ? numeric : undefined;
+};
+
+const getItemGenreIds = (item) => {
+  const normalizeIds = (ids) => ids
+    .map((id) => Number(id))
+    .filter((id) => Number.isFinite(id));
+
+  if (Array.isArray(item.genre_ids) && item.genre_ids.length > 0) {
+    return normalizeIds(item.genre_ids);
+  }
+  if (Array.isArray(item.genres) && item.genres.length > 0) {
+    return normalizeIds(item.genres.map((genre) => genre?.id));
+  }
+  return [];
+};
+
+const loadProviderCache = () => {
+  if (providerCacheState.loaded || typeof window === 'undefined') {
+    return providerCacheState.data;
+  }
+  try {
+    const stored = window.localStorage.getItem(PROVIDER_CACHE_KEY);
+    providerCacheState.data = stored ? JSON.parse(stored) : {};
+  } catch (error) {
+    providerCacheState.data = {};
+  }
+  providerCacheState.loaded = true;
+  return providerCacheState.data;
+};
+
+const persistProviderCache = () => {
+  if (typeof window === 'undefined') return;
+  try {
+    window.localStorage.setItem(PROVIDER_CACHE_KEY, JSON.stringify(providerCacheState.data));
+  } catch (error) {
+    // Ignore cache write failures (storage quota, privacy mode).
+  }
+};
+
+const getCachedWatchProviders = async (mediaType, id) => {
+  if (typeof window === 'undefined') {
+    return getWatchProviders(mediaType, id);
+  }
+
+  const cache = loadProviderCache();
+  const cacheKey = `${mediaType}:${id}`;
+  const cached = cache[cacheKey];
+  if (cached && Date.now() - cached.fetchedAt < PROVIDER_CACHE_TTL) {
+    return cached.data;
+  }
+
+  const data = await getWatchProviders(mediaType, id);
+  cache[cacheKey] = {
+    fetchedAt: Date.now(),
+    data,
+  };
+  persistProviderCache();
+  return data;
+};
+
+const indexProviders = (data, region) => {
+  const regionData = data?.results?.[region];
+  const providersById = new Map();
+
+  if (!regionData) {
+    return { providersById, providers: [] };
+  }
+
+  PROVIDER_BUCKETS.forEach((type) => {
+    const list = regionData[type] || [];
+    list.forEach((provider) => {
+      if (!provider?.provider_id) return;
+      const existing = providersById.get(provider.provider_id) || {
+        ...provider,
+        types: new Set(),
+      };
+      existing.types.add(type);
+      providersById.set(provider.provider_id, existing);
+    });
+  });
+
+  return { providersById, providers: Array.from(providersById.values()) };
+};
+
+const needsMetadata = (item) => {
+  const hasGenres = getItemGenreIds(item).length > 0;
+  const hasPopularity = item.popularity !== undefined && item.popularity !== null;
+  const hasVoteAverage = item.vote_average !== undefined && item.vote_average !== null;
+  return !(hasGenres && hasPopularity && hasVoteAverage);
+};
+
+const extractMetadata = (data) => {
+  if (!data) return {};
+  const genreIds = Array.isArray(data.genres)
+    ? data.genres.map((genre) => Number(genre.id)).filter((id) => Number.isFinite(id))
+    : [];
+  const popularity = normalizeNumber(data.popularity);
+  const voteAverage = normalizeNumber(data.vote_average);
+
+  return {
+    ...(genreIds.length > 0 ? { genre_ids: genreIds } : {}),
+    ...(popularity !== undefined ? { popularity } : {}),
+    ...(voteAverage !== undefined ? { vote_average: voteAverage } : {}),
+  };
+};
+
 export default function Watchlist() {
   const [searchParams, setSearchParams] = useSearchParams();
   const mediaType = searchParams.get('mediaType') || 'movie';
@@ -111,6 +262,7 @@ export default function Watchlist() {
     addItemToList,
     removeItemFromList,
     reorderItems,
+    updateItemDetails,
     isLoading,
     warning,
     source,
@@ -121,6 +273,13 @@ export default function Watchlist() {
   const [filterQuery, setFilterQuery] = useState('');
   const [yearFilter, setYearFilter] = useState('');
   const [minRating, setMinRating] = useState('');
+  const [genreFilters, setGenreFilters] = useState([]);
+  const [providerFilters, setProviderFilters] = useState([]);
+  const [providerTypeFilters, setProviderTypeFilters] = useState([]);
+  const [providerRegion, setProviderRegion] = useState(() => inferProviderRegion());
+  const [isFilterPanelOpen, setIsFilterPanelOpen] = useState(false);
+  const [showAllFilterChips, setShowAllFilterChips] = useState(false);
+  const [isSortMenuOpen, setIsSortMenuOpen] = useState(false);
   const [isReorderMode, setIsReorderMode] = useState(false);
   const [selectionMode, setSelectionMode] = useState(false);
   const [deleteMode, setDeleteMode] = useState(false);
@@ -128,6 +287,10 @@ export default function Watchlist() {
   const [moveTargetId, setMoveTargetId] = useState('');
   const [activeId, setActiveId] = useState(null);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const metadataEnrichedRef = useRef(new Set());
+  const sortButtonRef = useRef(null);
+  const sortMenuRef = useRef(null);
+  const reorderSnapshotRef = useRef(null);
 
   const activeList = useMemo(() => {
     if (listParam) {
@@ -160,10 +323,77 @@ export default function Watchlist() {
   ];
 
   const currentItems = mediaType === 'movie' ? movieItems : tvItems;
+  const { data: genreData } = useQuery({
+    queryKey: ['genreList', mediaType],
+    queryFn: () => getGenreList(mediaType),
+    staleTime: 1000 * 60 * 60 * 24,
+  });
+  const genreOptions = useMemo(
+    () => (genreData?.genres || []).slice().sort((a, b) => a.name.localeCompare(b.name)),
+    [genreData]
+  );
+  const { data: regionData } = useQuery({
+    queryKey: ['watchProviderRegions'],
+    queryFn: () => getWatchProviderRegions(),
+    staleTime: 1000 * 60 * 60 * 24,
+  });
+  const regionOptions = useMemo(
+    () => (regionData?.results || [])
+      .slice()
+      .sort((a, b) => a.english_name.localeCompare(b.english_name)),
+    [regionData]
+  );
+  const providerQueries = useQueries({
+    queries: currentItems.map((item) => ({
+      queryKey: ['watchProviders', mediaType, item.id],
+      queryFn: () => getCachedWatchProviders(mediaType, item.id),
+      enabled: currentItems.length > 0,
+      staleTime: 1000 * 60 * 60 * 12,
+    })),
+  });
+  const providerById = useMemo(() => {
+    const map = new Map();
+    providerQueries.forEach((query, index) => {
+      const item = currentItems[index];
+      if (!item) return;
+      map.set(item.id, indexProviders(query.data, providerRegion));
+    });
+    return map;
+  }, [providerQueries, currentItems, providerRegion]);
+  const availableProviders = useMemo(() => {
+    const map = new Map();
+    providerById.forEach((providers) => {
+      providers.providers.forEach((provider) => {
+        map.set(provider.provider_id, provider);
+      });
+    });
+    return Array.from(map.values()).sort((a, b) => a.provider_name.localeCompare(b.provider_name));
+  }, [providerById]);
+  const providersLoading = providerQueries.some((query) => query.isLoading);
+  const providersErrored = providerQueries.some((query) => query.isError);
+  const itemsNeedingMetadata = useMemo(
+    () => currentItems.filter(needsMetadata).slice(0, MAX_METADATA_FETCH),
+    [currentItems]
+  );
+  const metadataQueries = useQueries({
+    queries: itemsNeedingMetadata.map((item) => ({
+      queryKey: ['watchlist-metadata', mediaType, item.id],
+      queryFn: () => (mediaType === 'movie' ? getMovieDetails(item.id) : getTVShowDetails(item.id)),
+      enabled: itemsNeedingMetadata.length > 0,
+      staleTime: 1000 * 60 * 60 * 12,
+    })),
+  });
   const visibleWatchlist = useMemo(() => {
     const normalizedQuery = filterQuery.trim().toLowerCase();
     const normalizedYear = yearFilter.trim();
     const minRatingValue = Number(minRating);
+    const genreFilterValues = genreFilters
+      .map((value) => Number(value))
+      .filter((value) => Number.isFinite(value));
+    const providerFilterValues = providerFilters
+      .map((value) => Number(value))
+      .filter((value) => Number.isFinite(value));
+    const providerTypeFilterValues = providerTypeFilters;
 
     const filtered = currentItems.filter((item) => {
       const title = (item.title || item.name || '').toLowerCase();
@@ -183,6 +413,40 @@ export default function Watchlist() {
         const rating = Number(item.vote_average || 0);
         if (rating < minRatingValue) {
           return false;
+        }
+      }
+
+      if (genreFilterValues.length > 0) {
+        const itemGenres = getItemGenreIds(item);
+        const hasGenre = genreFilterValues.some((genreId) => itemGenres.includes(genreId));
+        if (!hasGenre) {
+          return false;
+        }
+      }
+
+      if (providerFilterValues.length > 0 || providerTypeFilterValues.length > 0) {
+        const providers = providerById.get(item.id);
+        if (!providers || providers.providersById.size === 0) {
+          return false;
+        }
+
+        if (providerFilterValues.length > 0) {
+          const matchesProvider = providerFilterValues.some((providerId) => {
+            const provider = providers.providersById.get(providerId);
+            if (!provider) return false;
+            if (providerTypeFilterValues.length === 0) return true;
+            return providerTypeFilterValues.some((type) => provider.types.has(type));
+          });
+          if (!matchesProvider) {
+            return false;
+          }
+        } else if (providerTypeFilterValues.length > 0) {
+          const matchesType = Array.from(providers.providersById.values()).some((provider) => (
+            providerTypeFilterValues.some((type) => provider.types.has(type))
+          ));
+          if (!matchesType) {
+            return false;
+          }
         }
       }
 
@@ -213,14 +477,200 @@ export default function Watchlist() {
       });
     }
 
+    if (sortBy === 'popularity') {
+      return [...filtered].sort((a, b) => {
+        const aScore = Number(a.popularity || 0);
+        const bScore = Number(b.popularity || 0);
+        return bScore - aScore;
+      });
+    }
+
     return filtered;
-  }, [currentItems, filterQuery, minRating, sortBy, yearFilter]);
+  }, [
+    currentItems,
+    filterQuery,
+    genreFilters,
+    minRating,
+    providerFilters,
+    providerById,
+    providerTypeFilters,
+    sortBy,
+    yearFilter,
+  ]);
+
+  const activeSortLabel = SORT_OPTIONS.find((option) => option.id === sortBy)?.label || 'Manual';
+  const iconButtonBase = 'inline-flex items-center justify-center h-9 w-9 rounded-lg border text-sm transition-colors focus:outline-none focus:ring-2 focus:ring-primary-500';
+  const iconButtonDefault = 'bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-700 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700';
+  const iconButtonActive = 'bg-primary-600 text-white border-primary-600';
+  const iconButtonDanger = 'border-red-200 text-red-600 hover:bg-red-50 dark:border-red-900/60 dark:text-red-300 dark:hover:bg-red-900/20';
+  const toolbarButtonBase = 'inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-sm transition-colors focus:outline-none focus:ring-2 focus:ring-primary-500';
+  const toolbarButtonDefault = 'bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700';
+  const toolbarButtonActive = 'bg-primary-600 text-white border-primary-600';
+  const chipBase = 'inline-flex items-center gap-2 rounded-full border px-3 py-1 text-xs';
+  const chipActive = 'border-primary-200 bg-primary-50 text-primary-700 dark:border-primary-900/60 dark:bg-primary-900/30 dark:text-primary-200';
+  const chipNeutral = 'border-gray-200 bg-white text-gray-600 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300';
 
   const isSelecting = selectionMode || deleteMode;
   const selectedItems = useMemo(
     () => currentItems.filter((item) => selectedIds.has(item.id)),
     [currentItems, selectedIds]
   );
+  const captureReorderSnapshot = () => {
+    if (!activeList) return;
+    reorderSnapshotRef.current = {
+      listId: activeList.id,
+      mediaType,
+      items: currentItems.map((item, index) => ({
+        ...item,
+        position: index,
+      })),
+    };
+  };
+  const exitReorderMode = ({ revert = false } = {}) => {
+    const snapshot = reorderSnapshotRef.current;
+    if (revert && snapshot && snapshot.listId === activeList?.id && snapshot.mediaType === mediaType) {
+      reorderItems(snapshot.listId, snapshot.mediaType, snapshot.items, { persist: true });
+    }
+    reorderSnapshotRef.current = null;
+    setIsReorderMode(false);
+  };
+  const toggleGenreFilter = (genreId) => {
+    setGenreFilters((prev) => (
+      prev.includes(genreId)
+        ? prev.filter((value) => value !== genreId)
+        : [...prev, genreId]
+    ));
+  };
+  const toggleProviderFilter = (providerId) => {
+    setProviderFilters((prev) => (
+      prev.includes(providerId)
+        ? prev.filter((value) => value !== providerId)
+        : [...prev, providerId]
+    ));
+  };
+  const toggleProviderTypeFilter = (type) => {
+    setProviderTypeFilters((prev) => (
+      prev.includes(type)
+        ? prev.filter((value) => value !== type)
+        : [...prev, type]
+    ));
+  };
+  const clearFilters = () => {
+    setFilterQuery('');
+    setYearFilter('');
+    setMinRating('');
+    setGenreFilters([]);
+    setProviderFilters([]);
+    setProviderTypeFilters([]);
+    setShowAllFilterChips(false);
+  };
+
+  const genreNameById = useMemo(
+    () => new Map(genreOptions.map((genre) => [genre.id, genre.name])),
+    [genreOptions]
+  );
+  const providerNameById = useMemo(
+    () => new Map(availableProviders.map((provider) => [Number(provider.provider_id), provider.provider_name])),
+    [availableProviders]
+  );
+  const regionNameByCode = useMemo(() => {
+    const map = new Map(regionOptions.map((region) => [region.iso_3166_1, region.english_name]));
+    if (providerRegion && !map.has(providerRegion)) {
+      map.set(providerRegion, providerRegion);
+    }
+    return map;
+  }, [providerRegion, regionOptions]);
+  const providerTypeLabels = useMemo(
+    () => new Map(PROVIDER_TYPE_OPTIONS.map((option) => [option.id, option.label])),
+    []
+  );
+  const filterChips = useMemo(() => {
+    const chips = [];
+    const trimmedQuery = filterQuery.trim();
+
+    if (trimmedQuery) {
+      chips.push({
+        id: 'search',
+        label: `Search: ${trimmedQuery}`,
+        onRemove: () => setFilterQuery(''),
+      });
+    }
+
+    if (yearFilter.trim()) {
+      chips.push({
+        id: 'year',
+        label: `Year: ${yearFilter.trim()}`,
+        onRemove: () => setYearFilter(''),
+      });
+    }
+
+    if (minRating.trim()) {
+      chips.push({
+        id: 'rating',
+        label: `Min rating: ${minRating.trim()}`,
+        onRemove: () => setMinRating(''),
+      });
+    }
+
+    genreFilters.forEach((genreId) => {
+      chips.push({
+        id: `genre-${genreId}`,
+        label: genreNameById.get(genreId) || `Genre ${genreId}`,
+        onRemove: () => setGenreFilters((prev) => prev.filter((value) => value !== genreId)),
+      });
+    });
+
+    providerFilters.forEach((providerId) => {
+      chips.push({
+        id: `provider-${providerId}`,
+        label: providerNameById.get(providerId) || `Provider ${providerId}`,
+        onRemove: () => setProviderFilters((prev) => prev.filter((value) => value !== providerId)),
+      });
+    });
+
+    providerTypeFilters.forEach((type) => {
+      chips.push({
+        id: `provider-type-${type}`,
+        label: `Type: ${providerTypeLabels.get(type) || type}`,
+        onRemove: () => setProviderTypeFilters((prev) => prev.filter((value) => value !== type)),
+      });
+    });
+
+    if ((providerFilters.length > 0 || providerTypeFilters.length > 0) && providerRegion) {
+      chips.push({
+        id: 'region',
+        label: `Region: ${regionNameByCode.get(providerRegion) || providerRegion}`,
+        onRemove: () => setProviderRegion(inferProviderRegion()),
+      });
+    }
+
+    return chips;
+  }, [
+    filterQuery,
+    yearFilter,
+    minRating,
+    genreFilters,
+    providerFilters,
+    providerTypeFilters,
+    providerRegion,
+    genreNameById,
+    providerNameById,
+    providerTypeLabels,
+    regionNameByCode,
+  ]);
+  const filterCount = filterChips.length;
+  const sortChip = sortBy !== 'manual'
+    ? {
+        label: `Sort: ${activeSortLabel}`,
+        onRemove: () => setSortBy('manual'),
+      }
+    : null;
+  const maxVisibleChips = 8;
+  const hasOverflowChips = filterChips.length > maxVisibleChips;
+  const visibleFilterChips = showAllFilterChips || !hasOverflowChips
+    ? filterChips
+    : filterChips.slice(0, maxVisibleChips);
+  const hiddenFilterCount = hasOverflowChips ? filterChips.length - maxVisibleChips : 0;
   const handleTabChange = (newMediaType) => {
     const nextParams = new URLSearchParams(searchParams);
     nextParams.set('mediaType', newMediaType);
@@ -256,7 +706,45 @@ export default function Watchlist() {
     setIsDeleteModalOpen(false);
     setMoveTargetId('');
     setActiveId(null);
+    metadataEnrichedRef.current = new Set();
   }, [activeList?.id, mediaType]);
+
+  useEffect(() => {
+    if (!activeList) return;
+    metadataQueries.forEach((query, index) => {
+      if (!query.isSuccess) return;
+      const item = itemsNeedingMetadata[index];
+      if (!item) return;
+      if (metadataEnrichedRef.current.has(item.id)) return;
+      const updates = extractMetadata(query.data);
+      if (Object.keys(updates).length === 0) return;
+      updateItemDetails(activeList.id, item.id, mediaType, updates);
+      metadataEnrichedRef.current.add(item.id);
+    });
+  }, [activeList, itemsNeedingMetadata, metadataQueries, mediaType, updateItemDetails]);
+
+  useEffect(() => {
+    if (!isSortMenuOpen) return undefined;
+    const handleClickOutside = (event) => {
+      const target = event.target;
+      if (sortMenuRef.current?.contains(target)) return;
+      if (sortButtonRef.current?.contains(target)) return;
+      setIsSortMenuOpen(false);
+    };
+    const handleKeyDown = (event) => {
+      if (event.key === 'Escape') {
+        setIsSortMenuOpen(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    document.addEventListener('keydown', handleKeyDown);
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [isSortMenuOpen]);
 
   useEffect(() => {
     if (sortBy !== 'manual') {
@@ -265,18 +753,40 @@ export default function Watchlist() {
   }, [sortBy]);
 
   useEffect(() => {
-    if (filterQuery.trim() || yearFilter.trim() || minRating.trim()) {
+    if (
+      filterQuery.trim()
+      || yearFilter.trim()
+      || minRating.trim()
+      || genreFilters.length > 0
+      || providerFilters.length > 0
+      || providerTypeFilters.length > 0
+    ) {
       setIsReorderMode(false);
     }
-  }, [filterQuery, minRating, yearFilter]);
+  }, [filterQuery, genreFilters, minRating, providerFilters, providerTypeFilters, yearFilter]);
 
+  useEffect(() => {
+    setGenreFilters([]);
+    setProviderFilters([]);
+    setProviderTypeFilters([]);
+  }, [mediaType]);
+
+  useEffect(() => {
+    setProviderFilters([]);
+  }, [providerRegion]);
+
+  const hasFilters = Boolean(
+    filterQuery.trim()
+    || yearFilter.trim()
+    || minRating.trim()
+    || genreFilters.length > 0
+    || providerFilters.length > 0
+    || providerTypeFilters.length > 0
+  );
   const canReorder = isReorderMode
     && sortBy === 'manual'
-    && !filterQuery.trim()
-    && !yearFilter.trim()
-    && !minRating.trim();
+    && !hasFilters;
   const canDrag = canReorder && !isSelecting;
-  const hasFilters = Boolean(filterQuery.trim() || yearFilter.trim() || minRating.trim());
   const hasMissingRemoteIds = currentItems.some((item) => !item.list_item_id);
   const reorderDisabled = sortBy !== 'manual' || hasFilters || (source === 'remote' && hasMissingRemoteIds);
 
@@ -299,6 +809,26 @@ export default function Watchlist() {
 
   const clearSelection = () => {
     setSelectedIds(new Set());
+  };
+
+  const floatingMode = deleteMode ? 'delete' : isReorderMode ? 'reorder' : '';
+  const handleFloatingConfirm = () => {
+    if (deleteMode) {
+      handleDeletePrompt();
+      return;
+    }
+    if (isReorderMode) {
+      exitReorderMode();
+    }
+  };
+  const handleFloatingCancel = () => {
+    if (deleteMode) {
+      exitDeleteMode();
+      return;
+    }
+    if (isReorderMode) {
+      exitReorderMode({ revert: true });
+    }
   };
 
   const exitDeleteMode = () => {
@@ -436,138 +966,381 @@ export default function Watchlist() {
         <TabNavigation tabs={tabs} activeTab={mediaType} onTabChange={handleTabChange} />
       </div>
 
-      <div className="mb-6 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-        <div className="flex flex-wrap items-center gap-2">
-          <label className="text-sm text-gray-600 dark:text-gray-400" htmlFor="watchlist-filter">
-            Filter
-          </label>
-          <input
-            id="watchlist-filter"
-            type="text"
-            value={filterQuery}
-            onChange={(event) => setFilterQuery(event.target.value)}
-            placeholder="Search titles"
-            className="w-full sm:w-56 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 px-3 py-2 text-sm text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-primary-500"
-          />
-          <input
-            id="watchlist-year"
-            type="number"
-            inputMode="numeric"
-            value={yearFilter}
-            onChange={(event) => setYearFilter(event.target.value)}
-            placeholder="Year"
-            className="w-28 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 px-3 py-2 text-sm text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-primary-500"
-          />
-          <input
-            id="watchlist-rating"
-            type="number"
-            step="0.1"
-            min="0"
-            max="10"
-            value={minRating}
-            onChange={(event) => setMinRating(event.target.value)}
-            placeholder="Min rating"
-            className="w-32 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 px-3 py-2 text-sm text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-primary-500"
-          />
-          {hasFilters && (
-            <Button
+      <div className="mb-8 rounded-2xl border border-gray-200 dark:border-gray-800 bg-white/90 dark:bg-gray-900/70 p-4 md:p-5 shadow-sm">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="flex flex-wrap items-center gap-2">
+            <button
               type="button"
-              variant="secondary"
-              size="sm"
-              onClick={() => {
-                setFilterQuery('');
-                setYearFilter('');
-                setMinRating('');
-              }}
+              onClick={() => setIsFilterPanelOpen((prev) => !prev)}
+              className={`${toolbarButtonBase} ${(isFilterPanelOpen || filterCount > 0) ? toolbarButtonActive : toolbarButtonDefault}`}
+              aria-expanded={isFilterPanelOpen}
+              aria-controls="watchlist-filter-panel"
             >
-              Clear filters
-            </Button>
-          )}
-        </div>
-        <div className="flex flex-wrap items-center gap-2">
-          <label className="text-sm text-gray-600 dark:text-gray-400" htmlFor="watchlist-sort">
-            Sort by
-          </label>
-          <select
-            id="watchlist-sort"
-            value={sortBy}
-            onChange={(event) => setSortBy(event.target.value)}
-            className="rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 px-3 py-2 text-sm text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-primary-500"
-          >
-            <option value="manual">Manual</option>
-            <option value="recent">Recently added</option>
-            <option value="title">Title</option>
-            <option value="release">Release date</option>
-          </select>
-          <Button
-            type="button"
-            variant={isReorderMode ? 'primary' : 'secondary'}
-            size="sm"
-            onClick={() => {
-              setIsReorderMode((prev) => !prev);
-              setSelectionMode(false);
-              setDeleteMode(false);
-            }}
-            disabled={reorderDisabled}
-          >
-            {isReorderMode ? 'Reordering' : 'Reorder'}
-          </Button>
-          {reorderDisabled && source === 'remote' && hasMissingRemoteIds && (
-            <span className="text-xs text-gray-500 dark:text-gray-400">
-              Syncing items before reorder…
-            </span>
-          )}
-          <Button
-            type="button"
-            variant={selectionMode ? 'primary' : 'secondary'}
-            size="sm"
-            onClick={() => {
-              setSelectionMode((prev) => !prev);
-              setIsReorderMode(false);
-              setDeleteMode(false);
-            }}
-          >
-            {selectionMode ? 'Selecting' : 'Select'}
-          </Button>
-          {deleteMode ? (
-            <>
-              <Button
-                type="button"
-                variant="secondary"
-                size="sm"
-                onClick={handleDeletePrompt}
-                disabled={selectedIds.size === 0}
-                className="border-red-200 text-red-600 hover:bg-red-50 dark:border-red-900/60 dark:text-red-300 dark:hover:bg-red-900/20"
+              <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4h18M6 12h12M10 20h4" />
+              </svg>
+              <span>Filter</span>
+              {filterCount > 0 && (
+                <span className="rounded-full bg-white/20 px-2 py-0.5 text-xs font-semibold">
+                  {filterCount}
+                </span>
+              )}
+              <svg
+                className={`h-4 w-4 transition-transform ${isFilterPanelOpen ? 'rotate-180' : ''}`}
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+                aria-hidden="true"
               >
-                Confirm
-              </Button>
-              <Button
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 9l6 6 6-6" />
+              </svg>
+            </button>
+
+            <div className="relative">
+              <button
+                ref={sortButtonRef}
                 type="button"
-                variant="ghost"
-                size="sm"
-                onClick={exitDeleteMode}
+                onClick={() => setIsSortMenuOpen((prev) => !prev)}
+                className={`${toolbarButtonBase} ${(isSortMenuOpen || sortBy !== 'manual') ? toolbarButtonActive : toolbarButtonDefault}`}
+                aria-haspopup="menu"
+                aria-expanded={isSortMenuOpen}
+                aria-label={`Sort by ${activeSortLabel}`}
               >
-                Cancel
-              </Button>
-            </>
-          ) : (
-            <Button
+                <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4.5h13.5m-13.5 6h9m-9 6h5.25m6-10.5v9m0 0l-3-3m3 3l3-3" />
+                </svg>
+                <span>Sort</span>
+                <span className={`text-xs ${sortBy !== 'manual' ? 'text-white/80' : 'text-gray-500 dark:text-gray-300'}`}>
+                  {activeSortLabel}
+                </span>
+                <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 9l6 6 6-6" />
+                </svg>
+              </button>
+              <div
+                ref={sortMenuRef}
+                role="menu"
+                className={`absolute left-0 z-20 mt-2 w-48 origin-top-left rounded-lg border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 shadow-lg transition-all duration-150 ease-out ${isSortMenuOpen ? 'scale-100 opacity-100 translate-y-0' : 'scale-95 opacity-0 -translate-y-1 pointer-events-none'}`}
+              >
+                <div className="py-1">
+                  {SORT_OPTIONS.map((option) => (
+                    <button
+                      key={option.id}
+                      type="button"
+                      role="menuitemradio"
+                      aria-checked={sortBy === option.id}
+                      onClick={() => {
+                        setSortBy(option.id);
+                        setIsSortMenuOpen(false);
+                      }}
+                      className={`flex w-full items-center justify-between px-3 py-2 text-sm ${sortBy === option.id ? 'bg-gray-100 dark:bg-gray-800 text-gray-900 dark:text-gray-100' : 'text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-800'}`}
+                    >
+                      <span>{option.label}</span>
+                      {sortBy === option.id && (
+                        <svg className="h-4 w-4 text-primary-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                        </svg>
+                      )}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-2">
+            <button
               type="button"
-              variant="secondary"
-              size="sm"
+              className={`${iconButtonBase} ${isReorderMode ? iconButtonActive : iconButtonDefault} ${reorderDisabled ? 'opacity-50 cursor-not-allowed' : ''}`}
+              onClick={() => {
+                if (isReorderMode) {
+                  exitReorderMode();
+                  return;
+                }
+                captureReorderSnapshot();
+                setIsReorderMode(true);
+                setSelectionMode(false);
+                setDeleteMode(false);
+              }}
+              disabled={reorderDisabled}
+              aria-label={isReorderMode ? 'Disable reorder' : 'Enable reorder'}
+              title={isReorderMode ? 'Disable reorder' : 'Enable reorder'}
+            >
+              <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7l4-4 4 4M12 3v18m0 0l-4-4m4 4l4-4" />
+              </svg>
+            </button>
+
+            <button
+              type="button"
+              className={`${iconButtonBase} ${selectionMode ? iconButtonActive : iconButtonDefault}`}
+              onClick={() => {
+                setSelectionMode((prev) => !prev);
+                exitReorderMode();
+                setDeleteMode(false);
+              }}
+              aria-label={selectionMode ? 'Exit selection mode' : 'Enter selection mode'}
+              title={selectionMode ? 'Exit selection mode' : 'Enter selection mode'}
+            >
+              <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                <rect x="4" y="4" width="16" height="16" rx="2" strokeWidth={2} />
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12l3 3 5-5" />
+              </svg>
+            </button>
+
+            <button
+              type="button"
+              className={`${iconButtonBase} ${iconButtonDanger} ${deleteMode ? 'bg-red-50 dark:bg-red-900/30' : ''}`}
               onClick={() => {
                 clearSelection();
                 setDeleteMode(true);
                 setSelectionMode(false);
-                setIsReorderMode(false);
+                exitReorderMode();
               }}
-              className="border-red-200 text-red-600 hover:bg-red-50 dark:border-red-900/60 dark:text-red-300 dark:hover:bg-red-900/20"
+              aria-label="Delete items"
+              title="Delete items"
             >
-              Delete
-            </Button>
-          )}
+              <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 7h12M9 7V5h6v2M10 11v6M14 11v6M5 7l1 12h12l1-12" />
+              </svg>
+            </button>
+          </div>
         </div>
+
+        {(filterChips.length > 0 || sortChip) && (
+          <div className="mt-4 flex flex-wrap items-center gap-2">
+            {sortChip && (
+              <div className={`${chipBase} ${chipNeutral}`}>
+                <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7l4-4 4 4M12 3v18" />
+                </svg>
+                <span>{sortChip.label}</span>
+                <button
+                  type="button"
+                  onClick={sortChip.onRemove}
+                  className="text-gray-500 hover:text-gray-700 dark:hover:text-gray-200"
+                  aria-label="Reset sort"
+                >
+                  <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+            )}
+
+            {visibleFilterChips.map((chip) => (
+              <div key={chip.id} className={`${chipBase} ${chipActive}`}>
+                <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                </svg>
+                <span>{chip.label}</span>
+                <button
+                  type="button"
+                  onClick={chip.onRemove}
+                  className="text-primary-700 hover:text-primary-900 dark:text-primary-200 dark:hover:text-white"
+                  aria-label={`Remove ${chip.label}`}
+                >
+                  <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+            ))}
+
+            {hiddenFilterCount > 0 && !showAllFilterChips && (
+              <button
+                type="button"
+                onClick={() => setShowAllFilterChips(true)}
+                className={`${chipBase} ${chipNeutral}`}
+              >
+                +{hiddenFilterCount} more
+              </button>
+            )}
+
+            {hiddenFilterCount > 0 && showAllFilterChips && (
+              <button
+                type="button"
+                onClick={() => setShowAllFilterChips(false)}
+                className="text-xs text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+              >
+                Show less
+              </button>
+            )}
+
+            {filterChips.length > 0 && (
+              <button
+                type="button"
+                onClick={clearFilters}
+                className="text-xs font-semibold text-primary-600 hover:text-primary-700"
+              >
+                Clear
+              </button>
+            )}
+          </div>
+        )}
+
+        <div
+          id="watchlist-filter-panel"
+          className={`mt-5 grid gap-6 overflow-hidden transition-all duration-500 ease-in-out ${isFilterPanelOpen ? 'max-h-[1200px] opacity-100 translate-y-0' : 'max-h-0 opacity-0 -translate-y-2 pointer-events-none'}`}
+        >
+          <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_120px_140px]">
+              <input
+                id="watchlist-filter"
+                type="text"
+                value={filterQuery}
+                onChange={(event) => setFilterQuery(event.target.value)}
+                placeholder="Search titles"
+                aria-label="Search titles"
+                className="w-full rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 px-3 py-2 text-sm text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-primary-500"
+              />
+              <input
+                id="watchlist-year"
+                type="number"
+                inputMode="numeric"
+                value={yearFilter}
+                onChange={(event) => setYearFilter(event.target.value)}
+                placeholder="Year"
+                aria-label="Filter by year"
+                className="w-full rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 px-3 py-2 text-sm text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-primary-500"
+              />
+              <input
+                id="watchlist-rating"
+                type="number"
+                step="0.1"
+                min="0"
+                max="10"
+                value={minRating}
+                onChange={(event) => setMinRating(event.target.value)}
+                placeholder="Min rating"
+                aria-label="Minimum rating"
+                className="w-full rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 px-3 py-2 text-sm text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-primary-500"
+              />
+            </div>
+
+            <div className="flex flex-wrap items-center gap-4">
+              <label className="text-sm text-gray-600 dark:text-gray-400" htmlFor="watchlist-region">
+                Region
+              </label>
+              <select
+                id="watchlist-region"
+                value={providerRegion}
+                onChange={(event) => setProviderRegion(event.target.value)}
+                className="w-36 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 px-3 py-2 text-sm text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-primary-500"
+              >
+                {(regionOptions.length > 0 ? regionOptions : [{ iso_3166_1: providerRegion, english_name: providerRegion }])
+                  .map((region) => (
+                    <option key={region.iso_3166_1} value={region.iso_3166_1}>
+                      {region.english_name}
+                    </option>
+                  ))}
+              </select>
+
+              <span className="text-sm text-gray-600 dark:text-gray-400">Provider types</span>
+              <div className="flex flex-wrap items-center gap-3">
+                {PROVIDER_TYPE_OPTIONS.map((option) => (
+                  <label
+                    key={option.id}
+                    className="inline-flex items-center gap-2 text-xs text-gray-700 dark:text-gray-200"
+                  >
+                    <input
+                      type="checkbox"
+                      checked={providerTypeFilters.includes(option.id)}
+                      onChange={() => toggleProviderTypeFilter(option.id)}
+                      className="h-4 w-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+                    />
+                    <span>{option.label}</span>
+                  </label>
+                ))}
+              </div>
+            </div>
+
+            <div className="grid gap-6 md:grid-cols-2">
+              <div className="rounded-xl border border-gray-200 dark:border-gray-800 bg-gray-50/80 dark:bg-gray-950/40 p-4">
+                <div className="flex items-center justify-between">
+                  <span className="text-sm font-semibold text-gray-700 dark:text-gray-200">Genres</span>
+                  {genreFilters.length > 0 && (
+                    <span className="text-xs text-gray-500 dark:text-gray-400">
+                      {genreFilters.length} selected
+                    </span>
+                  )}
+                </div>
+                <div className="mt-3 max-h-48 overflow-y-auto pr-1 space-y-2">
+                  {genreOptions.length === 0 ? (
+                    <p className="text-xs text-gray-500 dark:text-gray-400">No genres available.</p>
+                  ) : (
+                    genreOptions.map((genre) => (
+                      <label
+                        key={genre.id}
+                        className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-200"
+                      >
+                        <input
+                          type="checkbox"
+                          checked={genreFilters.includes(genre.id)}
+                          onChange={() => toggleGenreFilter(genre.id)}
+                          className="h-4 w-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+                        />
+                        <span>{genre.name}</span>
+                      </label>
+                    ))
+                  )}
+                </div>
+              </div>
+
+              <div className="rounded-xl border border-gray-200 dark:border-gray-800 bg-gray-50/80 dark:bg-gray-950/40 p-4">
+                <div className="flex items-center justify-between">
+                  <span className="text-sm font-semibold text-gray-700 dark:text-gray-200">Providers</span>
+                  {providersLoading && (
+                    <span className="text-xs text-gray-500 dark:text-gray-400">
+                      Loading...
+                    </span>
+                  )}
+                </div>
+                {providersErrored && (
+                  <p className="mt-1 text-xs text-red-500 dark:text-red-400">
+                    Provider data unavailable.
+                  </p>
+                )}
+                <div className="mt-3 max-h-48 overflow-y-auto pr-1 space-y-2">
+                  {availableProviders.length === 0 ? (
+                    <p className="text-xs text-gray-500 dark:text-gray-400">
+                      No providers for this region.
+                    </p>
+                  ) : (
+                    availableProviders.map((provider) => {
+                      const providerId = Number(provider.provider_id);
+                      return (
+                        <label
+                          key={provider.provider_id}
+                          className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-200"
+                        >
+                          <input
+                            type="checkbox"
+                            checked={providerFilters.includes(providerId)}
+                            onChange={() => toggleProviderFilter(providerId)}
+                            className="h-4 w-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+                          />
+                          <span>{provider.provider_name}</span>
+                        </label>
+                      );
+                    })
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+        {reorderDisabled && source === 'remote' && hasMissingRemoteIds && (
+          <span className="mt-3 text-xs text-gray-500 dark:text-gray-400">
+            Syncing items before reorder…
+          </span>
+        )}
       </div>
+
+      <FloatingModeActions
+        mode={floatingMode}
+        onConfirm={handleFloatingConfirm}
+        onCancel={handleFloatingCancel}
+        confirmDisabled={deleteMode && selectedIds.size === 0}
+      />
 
       {selectionMode && (
         <div className="mb-6 flex flex-wrap items-center gap-2 rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 p-4">
