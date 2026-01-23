@@ -41,10 +41,10 @@ export default function MovieDetail() {
 
   if (isLoading) {
     return (
-      <div>
+      <div className="px-4 sm:px-0">
         <Link
           to="/"
-          className="inline-flex items-center text-primary-600 dark:text-primary-400 hover:underline mb-4"
+          className="inline-flex items-center text-sm sm:text-base text-primary-600 dark:text-primary-400 hover:underline mb-3 sm:mb-4"
         >
           <svg className="w-5 h-5 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
@@ -58,10 +58,10 @@ export default function MovieDetail() {
 
   if (error) {
     return (
-      <div>
+      <div className="px-4 sm:px-0">
         <Link
           to="/"
-          className="inline-flex items-center text-primary-600 dark:text-primary-400 hover:underline mb-4"
+          className="inline-flex items-center text-sm sm:text-base text-primary-600 dark:text-primary-400 hover:underline mb-3 sm:mb-4"
         >
           <svg className="w-5 h-5 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
@@ -91,8 +91,8 @@ export default function MovieDetail() {
   const posterUrl = getImageUrl(movie.poster_path, 'poster', 'large');
 
   return (
-    <div>
-      <section className="relative w-screen left-1/2 -translate-x-1/2 -mt-8 mb-12">
+    <div className="px-4 sm:px-0">
+      <section className="relative w-screen left-1/2 -translate-x-1/2 -mt-8 mb-8 sm:mb-12">
         <div className="relative overflow-hidden">
           {backdropUrl ? (
             <img
@@ -107,7 +107,7 @@ export default function MovieDetail() {
           <div className="absolute inset-0 bg-gradient-to-t from-gray-950/70 via-transparent to-transparent" />
           <div className="absolute inset-x-0 bottom-0 h-28 bg-gradient-to-b from-transparent to-white dark:h-36 dark:from-transparent dark:to-gray-900" />
 
-          <div className="absolute right-6 top-6 z-20">
+          <div className="absolute right-4 sm:right-6 top-4 sm:top-6 z-20">
             <button
               onClick={() => toggleSystemList('watchlist', {
                 id: movie.id,
@@ -118,10 +118,10 @@ export default function MovieDetail() {
                 popularity: movie.popularity,
                 vote_average: movie.vote_average
               }, 'movie')}
-              className="p-3 rounded-full bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm hover:bg-white dark:hover:bg-gray-800 transition-all shadow-lg hover:scale-110"
+              className="p-2 sm:p-3 rounded-full bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm hover:bg-white dark:hover:bg-gray-800 transition-all shadow-lg hover:scale-110"
               aria-label={isInSystemList('watchlist', movie.id, 'movie') ? 'Remove from watchlist' : 'Add to watchlist'}
             >
-              <svg className="w-6 h-6" fill={isInSystemList('watchlist', movie.id, 'movie') ? 'currentColor' : 'none'} stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+              <svg className="w-5 h-5 sm:w-6 sm:h-6" fill={isInSystemList('watchlist', movie.id, 'movie') ? 'currentColor' : 'none'} stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z" className={isInSystemList('watchlist', movie.id, 'movie') ? 'text-blue-500' : 'text-gray-700 dark:text-gray-300'} />
               </svg>
             </button>
@@ -223,9 +223,9 @@ export default function MovieDetail() {
             </div>
           </div>
 
-          <div className="relative z-10 container mx-auto px-6 sm:px-8 lg:px-10 pb-14">
+          <div className="relative z-10 container mx-auto px-4 sm:px-6 lg:px-8 xl:px-10 pb-10 sm:pb-14">
             <div className="max-w-4xl text-gray-200/90">
-              <p className="text-sm md:text-base leading-relaxed">
+              <p className="text-sm sm:text-base leading-relaxed">
                 {movie.overview || 'No overview available.'}
               </p>
 
@@ -264,16 +264,16 @@ export default function MovieDetail() {
 
       {/* Collection Section */}
       {movie.belongs_to_collection && (
-        <div className="mb-12">
-          <h2 className="text-2xl font-semibold text-gray-900 dark:text-gray-100 mb-6">
+        <div className="mb-8 sm:mb-12">
+          <h2 className="text-xl sm:text-2xl font-semibold text-gray-900 dark:text-gray-100 mb-4 sm:mb-6">
             Part of Collection
           </h2>
           <Link
             to={`/collection/${movie.belongs_to_collection.id}`}
-            className="flex items-center gap-6 p-6 bg-gradient-to-r from-primary-50 to-primary-100 dark:from-primary-900/20 dark:to-primary-800/20 rounded-xl hover:shadow-lg transition-shadow duration-300 group"
+            className="flex flex-col sm:flex-row items-start sm:items-center gap-4 sm:gap-6 p-4 sm:p-6 bg-gradient-to-r from-primary-50 to-primary-100 dark:from-primary-900/20 dark:to-primary-800/20 rounded-xl hover:shadow-lg transition-shadow duration-300 group"
           >
             {movie.belongs_to_collection.poster_path && (
-              <div className="w-24 flex-shrink-0">
+              <div className="w-20 sm:w-24 flex-shrink-0">
                 <img
                   src={getImageUrl(movie.belongs_to_collection.poster_path, 'poster', 'small')}
                   alt={movie.belongs_to_collection.name}
@@ -282,10 +282,10 @@ export default function MovieDetail() {
               </div>
             )}
             <div className="flex-1">
-              <h3 className="text-xl font-semibold text-gray-900 dark:text-gray-100 mb-2 group-hover:text-primary-600 dark:group-hover:text-primary-400 transition-colors">
+              <h3 className="text-lg sm:text-xl font-semibold text-gray-900 dark:text-gray-100 mb-1 sm:mb-2 group-hover:text-primary-600 dark:group-hover:text-primary-400 transition-colors">
                 {movie.belongs_to_collection.name}
               </h3>
-              <p className="text-gray-600 dark:text-gray-400 flex items-center gap-2">
+              <p className="text-sm sm:text-base text-gray-600 dark:text-gray-400 flex items-center gap-2">
                 View all movies in this collection
                 <svg className="w-5 h-5 group-hover:translate-x-1 transition-transform duration-300" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
@@ -296,7 +296,7 @@ export default function MovieDetail() {
         </div>
       )}
 
-      <section className="mb-12">
+      <section className="mb-8 sm:mb-12">
         <TabNavigation
           tabs={[
             { id: 'cast', label: 'Cast' },
@@ -307,11 +307,11 @@ export default function MovieDetail() {
           onTabChange={setActiveTab}
         />
 
-        <div className="mt-6">
+        <div className="mt-4 sm:mt-6">
           {activeTab === 'cast' && (
             <div role="tabpanel" id="cast-panel" aria-labelledby="cast-tab">
               {cast.length > 0 ? (
-                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 xl:grid-cols-8 gap-4">
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 xl:grid-cols-8 gap-3 sm:gap-4">
                   {cast.map((person) => (
                     <div key={person.id} className="text-center">
                       <div className="aspect-[2/3] rounded-lg overflow-hidden bg-gray-200 dark:bg-gray-700 mb-2">
@@ -350,7 +350,7 @@ export default function MovieDetail() {
           {activeTab === 'crew' && (
             <div role="tabpanel" id="crew-panel" aria-labelledby="crew-tab">
               {displayedCrew.length > 0 ? (
-                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3 sm:gap-4">
                   {displayedCrew.map((person) => (
                     <div
                       key={`${person.id}-${person.job}`}
@@ -376,7 +376,7 @@ export default function MovieDetail() {
           {activeTab === 'similar' && (
             <div role="tabpanel" id="similar-panel" aria-labelledby="similar-tab">
               {similarMovies.length > 0 ? (
-                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-6">
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4 sm:gap-5 md:gap-6">
                   {similarMovies.map((movie) => (
                     <MovieCard key={movie.id} movie={movie} />
                   ))}

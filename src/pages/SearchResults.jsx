@@ -65,11 +65,11 @@ export default function SearchResults() {
 
   if (isLoading) {
     return (
-      <div>
-        <div className="mb-8">
+      <div className="px-4 sm:px-0">
+        <div className="mb-6 sm:mb-8">
           <Link
             to="/"
-            className="inline-flex items-center text-primary-600 dark:text-primary-400 hover:underline mb-4"
+            className="inline-flex items-center text-sm sm:text-base text-primary-600 dark:text-primary-400 hover:underline mb-3 sm:mb-4"
           >
             <svg
               className="w-5 h-5 mr-1"
@@ -87,7 +87,7 @@ export default function SearchResults() {
             </svg>
             Back to Home
           </Link>
-          <h1 className="text-3xl md:text-4xl font-bold text-gray-900 dark:text-gray-100 mb-6">
+          <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold text-gray-900 dark:text-gray-100 mb-4 sm:mb-6">
             Searching for "{query}"
           </h1>
           <TabNavigation tabs={mediaTypeTabs} activeTab={mediaType} onTabChange={handleMediaTypeChange} />
@@ -99,10 +99,10 @@ export default function SearchResults() {
 
   if (error) {
     return (
-      <div>
+      <div className="px-4 sm:px-0">
         <Link
           to="/"
-          className="inline-flex items-center text-primary-600 dark:text-primary-400 hover:underline mb-4"
+          className="inline-flex items-center text-sm sm:text-base text-primary-600 dark:text-primary-400 hover:underline mb-3 sm:mb-4"
         >
           <svg
             className="w-5 h-5 mr-1"
@@ -130,10 +130,10 @@ export default function SearchResults() {
 
   if (items.length === 0) {
     return (
-      <div>
+      <div className="px-4 sm:px-0">
         <Link
           to="/"
-          className="inline-flex items-center text-primary-600 dark:text-primary-400 hover:underline mb-4"
+          className="inline-flex items-center text-sm sm:text-base text-primary-600 dark:text-primary-400 hover:underline mb-3 sm:mb-4"
         >
           <svg
             className="w-5 h-5 mr-1"
@@ -160,11 +160,11 @@ export default function SearchResults() {
   }
 
   return (
-    <div>
-      <div className="mb-6">
+    <div className="px-4 sm:px-0">
+      <div className="mb-6 sm:mb-8">
         <Link
           to="/"
-          className="inline-flex items-center text-primary-600 dark:text-primary-400 hover:underline mb-4"
+          className="inline-flex items-center text-sm sm:text-base text-primary-600 dark:text-primary-400 hover:underline mb-3 sm:mb-4"
         >
           <svg
             className="w-5 h-5 mr-1"
@@ -182,19 +182,19 @@ export default function SearchResults() {
           </svg>
           Back to Home
         </Link>
-        <h1 className="text-3xl md:text-4xl font-bold text-gray-900 dark:text-gray-100 mb-2">
+        <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold text-gray-900 dark:text-gray-100 mb-2">
           Search Results for "{query}"
         </h1>
-        <p className="text-gray-600 dark:text-gray-400">
+        <p className="text-sm sm:text-base text-gray-600 dark:text-gray-400">
           Found {data.total_results.toLocaleString()} {mediaType === 'movie' ? 'movies' : mediaType === 'tv' ? 'TV shows' : 'people'}
         </p>
       </div>
 
-      <div className="mb-8">
+      <div className="mb-6 sm:mb-8">
         <TabNavigation tabs={mediaTypeTabs} activeTab={mediaType} onTabChange={handleMediaTypeChange} />
       </div>
 
-      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-6">
+      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4 sm:gap-5 md:gap-6">
         {items.map((item) => (
           mediaType === 'movie' ? (
             <MovieCard key={item.id} movie={item} />

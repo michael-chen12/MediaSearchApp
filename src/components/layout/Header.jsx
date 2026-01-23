@@ -36,9 +36,11 @@ export default function Header() {
   const navigate = useNavigate();
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [isMobileSearchOpen, setIsMobileSearchOpen] = useState(false);
   const dropdownRef = useRef(null);
   const avatarButtonRef = useRef(null);
   const mobileMenuRef = useRef(null);
+  const mobileSearchRef = useRef(null);
 
   const movieWatchlistItems = getSystemListItems('watchlist', 'movie');
   const tvWatchlistItems = getSystemListItems('watchlist', 'tv');
@@ -83,9 +85,6 @@ export default function Header() {
   }, [tvDetailsQueries]);
 
   const calendarBadgeCount = weekCount;
-  const calendarLabel = calendarBadgeCount > 0
-    ? `${calendarBadgeCount} episode${calendarBadgeCount === 1 ? '' : 's'} airing this week`
-    : 'View calendar';
   const calendarTitle = calendarBadgeCount > 0
     ? `${todayCount} today · ${calendarBadgeCount} this week`
     : 'No upcoming episodes this week';
@@ -93,6 +92,7 @@ export default function Header() {
   const handleSearch = (query) => {
     if (query.trim()) {
       navigate(`/search?q=${encodeURIComponent(query.trim())}`);
+      setIsMobileSearchOpen(false);
     }
   };
 
@@ -191,10 +191,37 @@ export default function Header() {
     };
   }, [isMobileMenuOpen]);
 
+  useEffect(() => {
+    if (!isMobileSearchOpen) return undefined;
+
+    const handleClickOutside = (event) => {
+      if (
+        mobileSearchRef.current &&
+        !mobileSearchRef.current.contains(event.target)
+      ) {
+        setIsMobileSearchOpen(false);
+      }
+    };
+
+    const handleEscape = (event) => {
+      if (event.key === 'Escape') {
+        setIsMobileSearchOpen(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    document.addEventListener('keydown', handleEscape);
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener('keydown', handleEscape);
+    };
+  }, [isMobileSearchOpen]);
+
   return (
     <header className="sticky top-0 z-50 bg-gradient-to-b from-gray-50 via-white to-gray-100 dark:from-gray-950 dark:via-gray-900 dark:to-gray-950 shadow-md">
       <div className="container mx-auto px-4 sm:px-6 lg:px-8 xl:px-10 py-3 sm:py-4">
-        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 sm:gap-4">
+        <div className="flex items-center justify-between gap-3 sm:gap-4">
           <Link
             to="/"
             className="text-xl sm:text-2xl font-bold text-primary-600 dark:text-primary-400 hover:text-primary-700 dark:hover:text-primary-300 transition-colors"
@@ -203,8 +230,34 @@ export default function Header() {
             🎬 ReelRadar
           </Link>
 
-          <div className="flex-1 md:max-w-xl">
+          {/* Desktop Search Bar */}
+          <div className="hidden md:flex flex-1 md:max-w-xl">
             <SearchBar onSearch={handleSearch} />
+          </div>
+
+          {/* Mobile Icons */}
+          <div className="flex md:hidden items-center gap-2">
+            <button
+              onClick={() => setIsMobileSearchOpen(!isMobileSearchOpen)}
+              className="p-2 rounded-lg text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors focus:outline-none focus:ring-2 focus:ring-primary-500"
+              aria-label="Search"
+              aria-expanded={isMobileSearchOpen}
+            >
+              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+              </svg>
+            </button>
+
+            <button
+              onClick={() => setIsMobileMenuOpen(true)}
+              className="p-2 rounded-lg text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors focus:outline-none focus:ring-2 focus:ring-primary-500"
+              aria-label="Open menu"
+              aria-expanded={isMobileMenuOpen}
+            >
+              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+              </svg>
+            </button>
           </div>
 
           {/* Desktop Navigation */}
@@ -345,20 +398,17 @@ export default function Header() {
               )}
             </div>
           </div>
-
-          {/* Mobile Hamburger Button */}
-          <button
-            onClick={() => setIsMobileMenuOpen(true)}
-            className="md:hidden absolute top-3 sm:top-4 right-4 sm:right-6 p-2 rounded-lg text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors focus:outline-none focus:ring-2 focus:ring-primary-500"
-            aria-label="Open menu"
-            aria-expanded={isMobileMenuOpen}
-          >
-            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
-            </svg>
-          </button>
         </div>
       </div>
+
+      {/* Mobile Search Overlay */}
+      {isMobileSearchOpen && (
+        <div className="md:hidden absolute top-full left-0 right-0 bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-800 shadow-lg z-40 animate-in slide-in-from-top-2 duration-200">
+          <div ref={mobileSearchRef} className="container mx-auto px-4 py-3">
+            <SearchBar onSearch={handleSearch} autoFocus />
+          </div>
+        </div>
+      )}
 
       {/* Mobile Menu Overlay */}
       {isMobileMenuOpen && (

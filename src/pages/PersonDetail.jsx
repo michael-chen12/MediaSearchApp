@@ -111,10 +111,10 @@ export default function PersonDetail() {
     .slice(0, 6);
 
   return (
-    <div>
+    <div className="px-4 sm:px-0">
       <Link
         to="/"
-        className="inline-flex items-center text-primary-600 dark:text-primary-400 hover:underline mb-6"
+        className="inline-flex items-center text-sm sm:text-base text-primary-600 dark:text-primary-400 hover:underline mb-4 sm:mb-6"
       >
         <svg className="w-5 h-5 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
@@ -122,7 +122,7 @@ export default function PersonDetail() {
         Back to Home
       </Link>
 
-      <div className="grid md:grid-cols-[300px,1fr] gap-8 mb-12">
+      <div className="grid md:grid-cols-[280px,1fr] lg:grid-cols-[300px,1fr] gap-6 sm:gap-8 mb-8 sm:mb-12">
         <div>
           <div className="aspect-[2/3] rounded-lg overflow-hidden bg-gray-200 dark:bg-gray-700 shadow-xl mb-4">
             {profileUrl ? (
@@ -142,11 +142,11 @@ export default function PersonDetail() {
         </div>
 
         <div>
-          <h1 className="text-4xl md:text-5xl font-bold text-gray-900 dark:text-gray-100 mb-4">
+          <h1 className="text-3xl sm:text-4xl md:text-5xl font-bold text-gray-900 dark:text-gray-100 mb-3 sm:mb-4">
             {person.name}
           </h1>
 
-          <div className="grid sm:grid-cols-2 gap-4 mb-6 text-gray-700 dark:text-gray-300">
+          <div className="grid sm:grid-cols-2 gap-3 sm:gap-4 mb-4 sm:mb-6 text-sm sm:text-base text-gray-700 dark:text-gray-300">
             {person.known_for_department && (
               <div>
                 <span className="font-semibold">Known For:</span> {person.known_for_department}
@@ -166,11 +166,11 @@ export default function PersonDetail() {
           </div>
 
           {person.biography && (
-            <div className="mb-6">
-              <h2 className="text-2xl font-semibold text-gray-900 dark:text-gray-100 mb-3">
+            <div className="mb-4 sm:mb-6">
+              <h2 className="text-xl sm:text-2xl font-semibold text-gray-900 dark:text-gray-100 mb-2 sm:mb-3">
                 Biography
               </h2>
-              <p className="text-gray-700 dark:text-gray-300 leading-relaxed whitespace-pre-line">
+              <p className="text-sm sm:text-base text-gray-700 dark:text-gray-300 leading-relaxed whitespace-pre-line">
                 {person.biography}
               </p>
             </div>
@@ -179,11 +179,11 @@ export default function PersonDetail() {
       </div>
 
       {knownFor.length > 0 && (
-        <div className="mb-12">
-          <h2 className="text-2xl font-semibold text-gray-900 dark:text-gray-100 mb-6">
+        <div className="mb-8 sm:mb-12">
+          <h2 className="text-xl sm:text-2xl font-semibold text-gray-900 dark:text-gray-100 mb-4 sm:mb-6">
             Known For
           </h2>
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-6">
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4 sm:gap-5 md:gap-6">
             {knownFor.map((credit) =>
               credit.media_type === 'movie' ? (
                 <MovieCard key={`known-${credit.media_type}-${credit.id}`} movie={credit} />
@@ -196,11 +196,11 @@ export default function PersonDetail() {
       )}
 
       {sortedMovies.length > 0 && (
-        <div className="mb-12">
-          <h2 className="text-2xl font-semibold text-gray-900 dark:text-gray-100 mb-6">
+        <div className="mb-8 sm:mb-12">
+          <h2 className="text-xl sm:text-2xl font-semibold text-gray-900 dark:text-gray-100 mb-4 sm:mb-6">
             Movies ({sortedMovies.length})
           </h2>
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-6">
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4 sm:gap-5 md:gap-6">
             {sortedMovies.slice(0, 18).map((movie) => (
               <MovieCard key={`${movie.id}-${movie.credit_id}`} movie={movie} />
             ))}
@@ -215,10 +215,10 @@ export default function PersonDetail() {
 
       {sortedTVShows.length > 0 && (
         <div>
-          <h2 className="text-2xl font-semibold text-gray-900 dark:text-gray-100 mb-6">
+          <h2 className="text-xl sm:text-2xl font-semibold text-gray-900 dark:text-gray-100 mb-4 sm:mb-6">
             TV Shows ({sortedTVShows.length})
           </h2>
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-6">
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4 sm:gap-5 md:gap-6">
             {sortedTVShows.slice(0, 18).map((tvShow) => (
               <TVShowCard key={`${tvShow.id}-${tvShow.credit_id}`} tvShow={tvShow} />
             ))}

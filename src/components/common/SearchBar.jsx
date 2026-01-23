@@ -1,6 +1,6 @@
 import { useState } from 'react';
 
-export default function SearchBar({ onSearch, placeholder = 'Search for movies...' }) {
+export default function SearchBar({ onSearch, placeholder = 'Search for movies...', autoFocus = false }) {
   const [query, setQuery] = useState('');
 
   const handleSubmit = (e) => {
@@ -16,6 +16,7 @@ export default function SearchBar({ onSearch, placeholder = 'Search for movies..
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           placeholder={placeholder}
+          autoFocus={autoFocus}
           className="w-full px-4 py-3 pl-12 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-[background-color,border-color,color,box-shadow] duration-300"
           aria-label="Search movies"
         />

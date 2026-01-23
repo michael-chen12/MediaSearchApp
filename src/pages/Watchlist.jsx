@@ -38,7 +38,6 @@ import {
   getWatchProviders,
 } from '../lib/tmdbClient';
 import { normalizeTags } from '../utils/annotations';
-import { useWatchProgress } from '../context/WatchProgressContext';
 
 function SortableItem({ id, disabled, className, children }) {
   const {
@@ -311,7 +310,6 @@ export default function Watchlist() {
     createList,
     canManageLists,
   } = useLists();
-  const { progressByMediaId, markEpisodeWatched } = useWatchProgress();
   const [sortBy, setSortBy] = useState('manual');
   const [filterQuery, setFilterQuery] = useState('');
   const [yearFilter, setYearFilter] = useState('');
@@ -1160,12 +1158,12 @@ export default function Watchlist() {
           {toastMessage}
         </div>
       )}
-      <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+      <div className="mb-6 sm:mb-8 flex flex-col gap-3 sm:gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <h1 className="text-3xl md:text-4xl font-bold text-gray-900 dark:text-gray-100 mb-2">
+          <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold text-gray-900 dark:text-gray-100 mb-2">
             My Lists
           </h1>
-          <p className="text-gray-600 dark:text-gray-400">
+          <p className="text-sm sm:text-base text-gray-600 dark:text-gray-400">
             {activeList?.name || 'List'} · {activeListCount} {mediaType === 'movie' ? 'movies' : 'TV shows'}
           </p>
         </div>

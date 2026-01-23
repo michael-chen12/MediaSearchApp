@@ -3,7 +3,6 @@ import { useQueries } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 import { getTVShowDetails, getImageUrl } from '../../lib/tmdbClient';
 import { formatDate, formatEpisode } from '../../utils/format';
-import { useWatchProgress } from '../../context/WatchProgressContext';
 
 const DAY_COUNT = 7;
 
@@ -32,7 +31,6 @@ const buildDateKey = (date) => {
 const isSameDateKey = (a, b) => a === b;
 
 export default function CalendarView({ items = [] }) {
-  const { progressByMediaId } = useWatchProgress();
   const [weekStart, setWeekStart] = useState(() => startOfWeek(new Date()));
 
   const weekDays = useMemo(() => (

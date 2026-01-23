@@ -7,12 +7,12 @@ export default function Calendar() {
   const tvItems = useMemo(() => getSystemListItems('watchlist', 'tv'), [getSystemListItems]);
 
   return (
-    <div>
-      <div className="mb-6">
-        <h1 className="text-3xl md:text-4xl font-bold text-gray-900 dark:text-gray-100 mb-2">
+    <div className="px-4 sm:px-0">
+      <div className="mb-6 sm:mb-8">
+        <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold text-gray-900 dark:text-gray-100 mb-2">
           Calendar
         </h1>
-        <p className="text-sm text-gray-600 dark:text-gray-400">
+        <p className="text-sm sm:text-base text-gray-600 dark:text-gray-400">
           Upcoming episodes from your watchlist.
         </p>
       </div>

@@ -15,10 +15,10 @@ export default function CollectionDetail() {
 
   if (isLoading) {
     return (
-      <div>
+      <div className="px-4 sm:px-0">
         <Link
           to="/"
-          className="inline-flex items-center text-primary-600 dark:text-primary-400 hover:underline mb-4"
+          className="inline-flex items-center text-sm sm:text-base text-primary-600 dark:text-primary-400 hover:underline mb-3 sm:mb-4"
         >
           <svg className="w-5 h-5 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
@@ -32,10 +32,10 @@ export default function CollectionDetail() {
 
   if (error) {
     return (
-      <div>
+      <div className="px-4 sm:px-0">
         <Link
           to="/"
-          className="inline-flex items-center text-primary-600 dark:text-primary-400 hover:underline mb-4"
+          className="inline-flex items-center text-sm sm:text-base text-primary-600 dark:text-primary-400 hover:underline mb-3 sm:mb-4"
         >
           <svg className="w-5 h-5 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
@@ -58,10 +58,10 @@ export default function CollectionDetail() {
   });
 
   return (
-    <div>
+    <div className="px-4 sm:px-0">
       <Link
         to="/"
-        className="inline-flex items-center text-primary-600 dark:text-primary-400 hover:underline mb-6"
+        className="inline-flex items-center text-sm sm:text-base text-primary-600 dark:text-primary-400 hover:underline mb-4 sm:mb-6"
       >
         <svg className="w-5 h-5 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
@@ -71,7 +71,7 @@ export default function CollectionDetail() {
 
       {/* Backdrop Image */}
       {backdropUrl && (
-        <div className="relative h-[300px] md:h-[400px] rounded-xl overflow-hidden mb-8 bg-gray-200 dark:bg-gray-800">
+        <div className="relative h-[200px] sm:h-[300px] md:h-[400px] rounded-lg sm:rounded-xl overflow-hidden mb-6 sm:mb-8 bg-gray-200 dark:bg-gray-800">
           <img
             src={backdropUrl}
             alt={`${collection.name} backdrop`}
@@ -82,7 +82,7 @@ export default function CollectionDetail() {
       )}
 
       {/* Collection Header */}
-      <div className="grid md:grid-cols-[300px,1fr] gap-8 mb-12">
+      <div className="grid md:grid-cols-[280px,1fr] lg:grid-cols-[300px,1fr] gap-6 sm:gap-8 mb-8 sm:mb-12">
         {posterUrl && (
           <div className="hidden md:block">
             <img
@@ -94,16 +94,16 @@ export default function CollectionDetail() {
         )}
 
         <div>
-          <h1 className="text-4xl md:text-5xl font-bold text-gray-900 dark:text-gray-100 mb-6">
+          <h1 className="text-3xl sm:text-4xl md:text-5xl font-bold text-gray-900 dark:text-gray-100 mb-4 sm:mb-6">
             {collection.name}
           </h1>
 
           {collection.overview && (
-            <div className="mb-8">
-              <h2 className="text-2xl font-semibold text-gray-900 dark:text-gray-100 mb-3">
+            <div className="mb-6 sm:mb-8">
+              <h2 className="text-xl sm:text-2xl font-semibold text-gray-900 dark:text-gray-100 mb-2 sm:mb-3">
                 Overview
               </h2>
-              <p className="text-gray-700 dark:text-gray-300 leading-relaxed">
+              <p className="text-sm sm:text-base text-gray-700 dark:text-gray-300 leading-relaxed">
                 {collection.overview}
               </p>
             </div>
@@ -117,11 +117,11 @@ export default function CollectionDetail() {
 
       {/* Movies in Collection */}
       {sortedMovies.length > 0 && (
-        <div className="mb-12">
-          <h2 className="text-2xl font-semibold text-gray-900 dark:text-gray-100 mb-6">
+        <div className="mb-8 sm:mb-12">
+          <h2 className="text-xl sm:text-2xl font-semibold text-gray-900 dark:text-gray-100 mb-4 sm:mb-6">
             Movies in Collection
           </h2>
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-6">
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4 sm:gap-5 md:gap-6">
             {sortedMovies.map((movie) => (
               <MovieCard key={movie.id} movie={movie} />
             ))}
